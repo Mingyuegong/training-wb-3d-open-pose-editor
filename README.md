@@ -1,7 +1,27 @@
-# Online 3D Openpose Editor [[中文版](README-zh.md)]
-# [Click me to get editor](https://zhuyu1997.github.io/open-pose-editor/)
+# 3D Openpose Editor (sd-webui-3d-open-pose-editor)
+
+An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) to use [Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor).
+
 # Preview
-https://user-images.githubusercontent.com/18410894/224073965-c782a05f-0a20-41cf-863d-8de490021ed7.mp4
+
+![Preview](https://user-images.githubusercontent.com/42905588/227514865-f27c1936-12ce-4e81-b4d1-b08baa0745a8.png)
+
+# Installation
+
+1. Open the "Extension" tab of the WebUI
+2. Open the "Available" tab
+3. If your WebUI is out of date, change the "Extension index URL" to `https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui-extensions/master/index.json`
+4. Click the "Load from:" button
+5. Click the "Install" button of 3D Openpose Editor
+6. Open the "Installed" tab and click the "Apply and restart UI" button
+
+# Usage
+
+1. Manipulate the 3D models and camera with the mouse to set the pose.
+2. Click the "Generate Skeleton/Depth/Normal/Canny Map" from the right controller. Then, move to the "Send to ControlNet" tab.
+3. If Multi-ControlNet is enabled, set "ControlNet number".
+4. Click the "Send to txt2img" or "Send to img2img" button to send the images to ControlNet.
+
 # Feature
 
 - **Pose Editing**: Edit the pose of the 3D model by selecting a joint and rotating it with the mouse. 
@@ -29,7 +49,7 @@ https://user-images.githubusercontent.com/18410894/224073965-c782a05f-0a20-41cf-
 ### Other Functions:
 - **Switch to Move Mode**: Press the X key to switch to move mode, allowing you to move the entire body.
 - **Delete Body**: Press the D key to delete the entire body.
-# Contact
-Email: 891085309@qq.com
 
-[Tencent QQ Group](https://jq.qq.com/?_wv=1027&k=N6j4nigd)：272950545
+# Credits
+
+* [ZhUyU1997 - Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor): Original version

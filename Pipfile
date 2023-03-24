@@ -1,0 +1,16 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+flake8 = "*"
+black = "*"
+isort = "*"
+mypy = "*"
+gradio = "==3.16.2"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
