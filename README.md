@@ -1,11 +1,7 @@
-# sd-webui-3d-open-pose-editor
-
-An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) to use [Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor).
-
+# Online 3D Openpose Editor [[中文版](README-zh.md)]
+# [Click me to get editor](https://zhuyu1997.github.io/open-pose-editor/)
 # Preview
-
-![Preview](https://user-images.githubusercontent.com/42905588/225193689-d22779fc-7157-4342-97bd-e98cc58f4719.png)
-
+https://user-images.githubusercontent.com/18410894/224073965-c782a05f-0a20-41cf-863d-8de490021ed7.mp4
 # Feature
 
 - **Pose Editing**: Edit the pose of the 3D model by selecting a joint and rotating it with the mouse. 
@@ -33,7 +29,7 @@ An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable
 ### Other Functions:
 - **Switch to Move Mode**: Press the X key to switch to move mode, allowing you to move the entire body.
 - **Delete Body**: Press the D key to delete the entire body.
+# Contact
+Email: 891085309@qq.com
 
-# Credits
-
-* [ZhUyU1997 - Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor): Original version
+[Tencent QQ Group](https://jq.qq.com/?_wv=1027&k=N6j4nigd)：272950545

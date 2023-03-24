@@ -1,31 +1,28 @@
-import { BodyEditor } from './editor'
+import { BodyEditor, Command } from './editor'
+import * as dat from 'dat.gui'
+import i18n from './i18n'
 import { BodyControlor } from './body'
-import {
-    addGradioSliderReleaseListener,
-    updateGradioSlider,
-} from './webui/gradio'
 
 const BodyParamsInit = {
-    HeadSize: '#threedopenpose_head_size',
-    NoseToNeck: '#threedopenpose_nose_to_neck',
-    ShoulderWidth: '#threedopenpose_shoulder_width',
-    ShoulderToHip: '#threedopenpose_shoulder_to_hip',
-    ArmLength: '#threedopenpose_arm_length',
-    Forearm: '#threedopenpose_forearm',
-    UpperArm: '#threedopenpose_upper_arm',
-    HandSize: '#threedopenpose_hand_size',
-    Hips: '#threedopenpose_hips',
-    LegLength: '#threedopenpose_leg_length',
-    Thigh: '#threedopenpose_thigh',
-    LowerLeg: '#threedopenpose_lower_leg',
-    FootSize: '#threedopenpose_foot_size',
+    HeadSize: 100,
+    NoseToNeck: 100,
+    ShoulderWidth: 100,
+    ShoulderToHip: 100,
+    ArmLength: 100,
+    Forearm: 100,
+    UpperArm: 100,
+    HandSize: 10,
+    Hips: 100,
+    LegLength: 100,
+    Thigh: 100,
+    LowerLeg: 100,
+    FootSize: 10,
 }
-export type BodyParams = keyof typeof BodyParamsInit
 
 function PushExecuteBodyParamsCommand(
     editor: BodyEditor,
     controlor: BodyControlor,
-    name: BodyParams,
+    name: keyof typeof BodyParamsInit,
     oldValue: number,
     value: number
 ) {
@@ -42,61 +39,91 @@ function PushExecuteBodyParamsCommand(
     editor.pushCommand(cmd)
 }
 
-let currentControlor: BodyControlor | null = null
+export function CreateBodyParamsControls(editor: BodyEditor, gui: dat.GUI) {
+    const bodyParams = {
+        ...BodyParamsInit,
+    }
 
-export function CreateBodyParamsControls(editor: BodyEditor) {
-    const paramElem = gradioApp().querySelector<HTMLElement>(
-        '#threedopenpose_body_params'
-    )!
-    paramElem.classList.add('threedopenpose_hidden')
+    let currentControlor: BodyControlor | null = null
+    const params = gui.addFolder(i18n.t('Body Parameters'))
 
-    const oldValues = new Map<BodyParams, number>()
+    const describeMapping: Record<keyof typeof BodyParamsInit, string> = {
+        HeadSize: i18n.t('Head Size'),
+        NoseToNeck: i18n.t('Nose To Neck'),
+        ShoulderWidth: i18n.t('Shoulder Width'),
+        ShoulderToHip: i18n.t('Shoulder To Hip'),
+        ArmLength: i18n.t('Arm Length'),
+        Forearm: i18n.t('Forearm'),
+        UpperArm: i18n.t('Upper Arm'),
+        HandSize: i18n.t('Hand Size'),
+        Hips: i18n.t('Hips'),
+        LegLength: i18n.t('Leg Length'),
+        Thigh: i18n.t('Thigh'),
+        LowerLeg: i18n.t('Lower Leg'),
+        FootSize: i18n.t('Foot Size'),
+    }
 
-    Object.entries(BodyParamsInit).forEach(([_name, selector]) => {
-        const name = _name as BodyParams
-        const elem = paramElem.querySelector(selector)!
-        addGradioSliderReleaseListener(elem, (value) => {
-            if (!currentControlor) {
-                return
-            }
-            const oldValue = oldValues.get(name)
-            if (!oldValue) {
-                return
-            }
-            if (Math.round(oldValue * 10) != Math.round(value * 10)) {
-                PushExecuteBodyParamsCommand(
-                    editor,
-                    currentControlor,
-                    name,
-                    oldValue,
-                    value
-                )
-                oldValues.set(name, value)
-            }
-        })
+    Object.entries(BodyParamsInit).forEach(([_name, maxValue]) => {
+        const name = _name as keyof typeof BodyParamsInit
+        let oldValue = 0
+        let changing = false
+        params
+            .add(bodyParams, name, 0.1, maxValue)
+            .name(describeMapping[name])
+            .onChange((value: number) => {
+                if (currentControlor) {
+                    // the first time
+                    if (changing == false) oldValue = currentControlor[name]
+                    changing = true
+                    currentControlor[name] = value
+                }
+            })
+            .onFinishChange((value: number) => {
+                if (currentControlor) {
+                    changing = false
+                    PushExecuteBodyParamsCommand(
+                        editor,
+                        currentControlor,
+                        name,
+                        oldValue,
+                        value
+                    )
+                }
+            })
     })
+
+    params.hide()
 
     editor.RegisterEvent({
         select(controlor) {
             currentControlor = controlor
             console.log('select')
-            Object.entries(BodyParamsInit).forEach(([_name, selector]) => {
-                const name = _name as BodyParams
-                const value = controlor[name]
-                updateGradioSlider(paramElem.querySelector(selector)!, value)
-                oldValues.set(name, value)
-            })
-            paramElem.classList.remove('threedopenpose_hidden')
+            bodyParams.HeadSize = currentControlor.HeadSize
+
+            bodyParams.NoseToNeck = currentControlor.NoseToNeck
+
+            bodyParams.ShoulderWidth = currentControlor.ShoulderWidth
+            bodyParams.ShoulderToHip = currentControlor.ShoulderToHip
+
+            bodyParams.ArmLength = currentControlor.ArmLength
+            bodyParams.UpperArm = currentControlor.UpperArm
+            bodyParams.Forearm = currentControlor.Forearm
+            bodyParams.HandSize = currentControlor.HandSize
+
+            bodyParams.Hips = currentControlor.Hips
+
+            bodyParams.LegLength = currentControlor.LegLength
+            bodyParams.Thigh = currentControlor.Thigh
+            bodyParams.LowerLeg = currentControlor.LowerLeg
+
+            bodyParams.FootSize = currentControlor.FootSize
+
+            params.updateDisplay()
+            params.show()
+            // params.open()
         },
         unselect() {
-            paramElem.classList.add('threedopenpose_hidden')
+            params.hide()
         },
     })
-}
-
-export function ChangeBodyParam(name: BodyParams, value: number) {
-    if (!currentControlor) {
-        return
-    }
-    currentControlor[name] = value
 }

@@ -1,13 +1,24 @@
 import * as THREE from 'three'
 import {
+    Bone,
     MeshDepthMaterial,
     MeshNormalMaterial,
     MeshPhongMaterial,
     Object3D,
+    Skeleton,
+    SkinnedMesh,
 } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 
+// @ts-ignore
+// import {
+//     CCDIKHelper,
+//     CCDIKSolver,
+//     IKS,
+// } from 'three/examples/jsm/animate/CCDIKSolver'
+
+import Stats from 'three/examples/jsm/libs/stats.module'
 import {
     BodyControlor,
     CloneBody,
@@ -22,10 +33,12 @@ import {
     LoadFoot,
     LoadHand,
     LoadPosesLibrary,
+    PartIndexMappingOfBlazePoseModel,
 } from './body'
 import { options } from './config'
 import { SetScreenShot } from './image'
 import {
+    download,
     downloadJson,
     getCurrentTime,
     getImage,
@@ -40,7 +53,10 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 
 import { LuminosityShader } from 'three/examples/jsm/shaders/LuminosityShader.js'
 import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorShader.js'
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils'
 import Swal from 'sweetalert2'
+import i18n from './i18n'
+import { FindObjectItem } from './three-utils'
 import { DetectPosefromImage } from './detect'
 
 interface BodyData {
@@ -72,9 +88,11 @@ type EditorUnselectEventHandler = () => void
 function Oops(error: any) {
     Swal.fire({
         icon: 'error',
-        title: 'Oops...',
-        text: 'Something went wrong!\n' + error?.stack ?? error,
-        footer: '<a href="https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues">If the problem persists, please click here to ask a question.</a>',
+        title: i18n.t('Oops...')!,
+        text: i18n.t('Something went wrong!')! + '\n' + error?.stack ?? error,
+        footer: `<a href="https://github.com/ZhUyU1997/open-pose-editor/issues">${i18n.t(
+            'If the problem persists, please click here to ask a question.'
+        )}</a>`,
     })
 }
 
@@ -111,14 +129,13 @@ export class BodyEditor {
     alight: THREE.AmbientLight
     raycaster = new THREE.Raycaster()
     IsClick = false
+    stats: Stats
 
     // ikSolver?: CCDIKSolver
     composer?: EffectComposer
     effectSobel?: ShaderPass
     enableComposer = false
     enablePreview = true
-
-    paused = false
 
     constructor(canvas: HTMLCanvasElement) {
         this.renderer = new THREE.WebGLRenderer({
@@ -209,6 +226,8 @@ export class BodyEditor {
         // // Setup post-processing step
         // this.setupPost();
 
+        this.stats = Stats()
+        document.body.appendChild(this.stats.dom)
         this.animate()
         this.handleResize()
         this.AutoSaveScene()
@@ -411,22 +430,11 @@ export class BodyEditor {
         return this.outputRenderer.domElement.toDataURL('image/png')
     }
     animate() {
-        if (this.paused) {
-            return
-        }
         requestAnimationFrame(this.animate.bind(this))
         this.handleResize()
         this.render()
         if (this.enablePreview) this.renderPreview()
-    }
-
-    pause() {
-        this.paused = true
-    }
-
-    resume() {
-        this.paused = false
-        this.animate()
+        this.stats.update()
     }
 
     getAncestors(o: Object3D) {
@@ -466,12 +474,15 @@ export class BodyEditor {
     }
 
     onMouseDown(event: MouseEvent) {
-        const x = event.offsetX - this.renderer.domElement.offsetLeft
-        const y = event.offsetY - this.renderer.domElement.offsetTop
         this.raycaster.setFromCamera(
             {
-                x: (x / this.renderer.domElement.clientWidth) * 2 - 1,
-                y: -(y / this.renderer.domElement.clientHeight) * 2 + 1,
+                x:
+                    (event.clientX / this.renderer.domElement.clientWidth) * 2 -
+                    1,
+                y:
+                    -(event.clientY / this.renderer.domElement.clientHeight) *
+                        2 +
+                    1,
             },
             this.camera
         )
@@ -977,7 +988,6 @@ export class BodyEditor {
         effectSobel.uniforms['resolution'].value.y =
             this.Height * window.devicePixelRatio
         this.composer.addPass(effectSobel)
-        this.effectSobel = effectSobel
     }
 
     changeComposerResoultion(width: number, height: number) {
@@ -993,7 +1003,7 @@ export class BodyEditor {
         const bodies = this.scene.children.filter((o) => o.name == 'torso')
         const body = bodies.length == 1 ? bodies[0] : this.getSelectedBody()
         if (!body) {
-            await Swal.fire('Please select a skeleton!!')
+            await Swal.fire(i18n.t('Please select a skeleton!!'))
             return
         }
 
@@ -1009,6 +1019,7 @@ export class BodyEditor {
             setTimeout(() => {
                 if (loading)
                     Swal.fire({
+                        title: i18n.t('Downloading Poses Library') ?? '',
                         didOpen: () => {
                             Swal.showLoading()
                         },
@@ -1042,6 +1053,7 @@ export class BodyEditor {
                 Swal.close()
             } else if (Swal.isVisible() == false) {
                 Swal.fire({
+                    title: i18n.t('Downloading Hand Model') ?? '',
                     didOpen: () => {
                         Swal.showLoading()
                     },
@@ -1054,6 +1066,7 @@ export class BodyEditor {
                 Swal.close()
             } else if (Swal.isVisible() == false) {
                 Swal.fire({
+                    title: i18n.t('Downloading Foot Model') ?? '',
                     didOpen: () => {
                         Swal.showLoading()
                     },
@@ -1302,7 +1315,7 @@ export class BodyEditor {
         const bodies = this.scene.children.filter((o) => o.name == 'torso')
         const body = bodies.length == 1 ? bodies[0] : this.getSelectedBody()
         if (!body) {
-            await Swal.fire('Please select a skeleton!!')
+            await Swal.fire(i18n.t('Please select a skeleton!!'))
             return
         }
 
@@ -1319,6 +1332,7 @@ export class BodyEditor {
             setTimeout(() => {
                 if (loading)
                     Swal.fire({
+                        title: i18n.t('Downloading MediaPipe Pose Model') ?? '',
                         didOpen: () => {
                             Swal.showLoading()
                         },

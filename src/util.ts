@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import Swal from 'sweetalert2'
+import i18n from './i18n'
 
 export function download(href: string, title: string) {
     const a = document.createElement('a')
@@ -32,11 +33,10 @@ export function getImage(url: string): Promise<HTMLImageElement> {
     })
 }
 
-export function setBackgroundImage(dataUrl: string | null) {
-    const div = gradioApp().getElementById('threedopenpose_background')
-    dataUrl = !dataUrl ? 'none' : `url(${dataUrl})`
+export function setBackgroundImage(dataUrl: string) {
+    const div = document.getElementById('background')
 
-    if (div) div.style.backgroundImage = dataUrl
+    if (div) div.style.backgroundImage = `url(${dataUrl})`
 }
 
 export function getCurrentTime(format = 'YYYY_MM_DD_HH_mm_ss') {
@@ -45,6 +45,7 @@ export function getCurrentTime(format = 'YYYY_MM_DD_HH_mm_ss') {
 
 export async function uploadJson() {
     const { value: file } = await Swal.fire({
+        title: i18n.t('Select a scene file')!,
         input: 'file',
         inputAttributes: {
             accept: 'application/json',
@@ -70,6 +71,7 @@ export async function uploadJson() {
 
 export async function uploadImage() {
     const { value: file } = await Swal.fire({
+        title: i18n.t('Select an image')!,
         input: 'file',
         inputAttributes: {
             accept: 'image/*',

@@ -1,303 +1,104 @@
+import './init'
+import * as dat from 'dat.gui'
+import './index.css'
 import { options } from './config'
 import { BodyEditor } from './editor'
-import { setFilePath } from './body'
-import { AddScreenShotListener } from './image'
-import { setBackgroundImage, uploadImage } from './util'
-import {
-    BodyParams,
-    ChangeBodyParam,
-    CreateBodyParamsControls,
-} from './body-params'
-import {
-    updateGradioCheckbox,
-    updateGradioImage,
-    updateGradioSlider,
-} from './webui/gradio'
+import i18n from './i18n'
+import { CreateBodyParamsControls } from './body-params'
+import { CreateLanguageFolder } from './language'
 
-let editor: BodyEditor | undefined
-let canvasSize = [512, 512]
-
-const init = () => {
-    const consts = JSON.parse(
-        gradioApp().querySelector('#threedopenpose_consts')!.textContent!
-    )
-    setFilePath(consts.handFbxPath, consts.footFbxPath, consts.posesPath)
-
-    options.autoSize = false
-    resize()
-    editor = new BodyEditor(
-        gradioApp().querySelector('#threedopenpose_canvas')!
-    )
-
-    CreateBodyParamsControls(editor)
-
-    AddScreenShotListener((id, url, name) => {
-        const imageElem = gradioApp().querySelector(
-            `#threedopenpose_${id}_image`
-        )!
-        updateGradioImage(imageElem, url, name)
-    })
-
-    editor.loadBodyData()
-}
-
-const isTabActive = () => {
-    const tab = gradioApp().querySelector<HTMLElement>('#tab_threedopenpose')
-    return tab && tab.style.display != 'none'
-}
-
-const resize = () => {
-    options.Width = canvasSize[0]
-    options.Height = canvasSize[1]
-}
-
-const sendToControlNet = (
-    element: Element,
-    poseImage: string | null,
-    poseTarget: string,
-    depthImage: string | null,
-    depthTarget: string,
-    normalImage: string | null,
-    normalTarget: string,
-    cannyImage: string | null,
-    cannyTarget: string
-) => {
-    const imageElems = element.querySelectorAll('div[data-testid="image"]')
-    if (poseImage && poseTarget != '-') {
-        updateGradioImage(imageElems[Number(poseTarget)], poseImage, 'pose.png')
-    }
-    if (depthImage && depthTarget != '-') {
-        updateGradioImage(
-            imageElems[Number(depthTarget)],
-            depthImage,
-            'depth.png'
-        )
-    }
-    if (normalImage && normalTarget != '-') {
-        updateGradioImage(
-            imageElems[Number(normalTarget)],
-            normalImage,
-            'normal.png'
-        )
-    }
-    if (cannyImage && cannyTarget != '-') {
-        updateGradioImage(
-            imageElems[Number(cannyTarget)],
-            cannyImage,
-            'canny.png'
-        )
-    }
-}
-
-window.threedopenpose = {
-    onResize: (width: number, height: number) => {
-        canvasSize = [width, height]
-        resize()
-    },
-    changeCameraNear: (value: number) => {
-        if (!editor) {
-            return
-        }
-        editor.CameraNear = value
-    },
-    changeCameraFar: (value: number) => {
-        if (!editor) {
-            return
-        }
-        editor.CameraFar = value
-    },
-    changeCameraFocalLength: (value: number) => {
-        if (!editor) {
-            return
-        }
-        editor.CameraFocalLength = value
-    },
-    changeBodyParam: (name: string, value: number) => {
-        ChangeBodyParam(name as BodyParams, value)
-    },
-    detectImage: () => {
-        editor?.DetectFromImage()
-    },
-    setBackground: async () => {
-        const dataUrl = await uploadImage()
-        setBackgroundImage(dataUrl)
-    },
-    saveScene: () => {
-        editor?.SaveScene()
-    },
-    loadScene: () => {
-        editor?.LoadScene()
-    },
-    restoreLastSavedScene: () => {
-        editor?.RestoreLastSavedScene()
-    },
-    undo: () => {
-        editor?.Undo()
-    },
-    redo: () => {
-        editor?.Redo()
-    },
-    randomPose: () => {
-        editor?.SetRandomPose()
-    },
-    copyBodyZ: () => {
-        editor?.CopyBodyZ()
-    },
-    copyBodyX: () => {
-        editor?.CopyBodyX()
-    },
-    removeBody: () => {
-        editor?.RemoveBody()
-    },
-    onChangeMoveMode: (value: boolean) => {
-        if (!editor) {
-            return
-        }
-        editor.MoveMode = value
-    },
-    onChangeOnlyHand: (value: boolean) => {
-        if (!editor) {
-            return
-        }
-        editor.OnlyHand = value
-    },
-    onChangeEnablePreview: (value: boolean) => {
-        if (!editor) {
-            return
-        }
-        editor.enablePreview = value
-    },
-    makeImages: () => {
-        if (!editor) {
-            return
-        }
-        editor.MakeImages()
-        gradioApp()
-            .querySelector('#threedopenpose_left_column')!
-            .querySelectorAll('button')[1]
-            .click()
-    },
-    sendTxt2img: (
-        poseImage: string | null,
-        poseTarget: string,
-        depthImage: string | null,
-        depthTarget: string,
-        normalImage: string | null,
-        normalTarget: string,
-        cannyImage: string | null,
-        cannyTarget: string
-    ) => {
-        const cnElem = gradioApp().querySelector(
-            '#txt2img_script_container #controlnet'
-        )!
-        sendToControlNet(
-            cnElem,
-            poseImage,
-            poseTarget,
-            depthImage,
-            depthTarget,
-            normalImage,
-            normalTarget,
-            cannyImage,
-            cannyTarget
-        )
-        switch_to_txt2img()
-    },
-    sendImg2img: (
-        poseImage: string,
-        poseTarget: string,
-        depthImage: string,
-        depthTarget: string,
-        normalImage: string,
-        normalTarget: string,
-        cannyImage: string,
-        cannyTarget: string
-    ) => {
-        const cnElem = gradioApp().querySelector(
-            '#img2img_script_container #controlnet'
-        )!
-        sendToControlNet(
-            cnElem,
-            poseImage,
-            poseTarget,
-            depthImage,
-            depthTarget,
-            normalImage,
-            normalTarget,
-            cannyImage,
-            cannyTarget
-        )
-        switch_to_img2img()
-    },
-    downloadImage: (image: string | null, name: string) => {
-        if (!image) {
-            return
-        }
-        const element = document.createElement('a')
-        element.href = image
-        element.download = name
-        element.target = '_blank'
-        element.click()
-    },
-}
-
-onUiLoaded(() => {
-    init()
-})
-
-onUiTabChange(() => {
-    if (!editor) {
-        return
-    }
-    if (isTabActive()) {
-        editor.resume()
-        const cameraElem = gradioApp().querySelector<HTMLElement>(
-            '#threedopenpose_camera_params'
-        )!
-        updateGradioSlider(
-            cameraElem.querySelector('#threedopenpose_camera_near')!,
-            editor.CameraNear
-        )
-        updateGradioSlider(
-            cameraElem.querySelector('#threedopenpose_camera_far')!,
-            editor.CameraFar
-        )
-        updateGradioSlider(
-            cameraElem.querySelector('#threedopenpose_camera_focal_length')!,
-            editor.CameraFocalLength
-        )
-    } else {
-        editor.pause()
-    }
-})
+const editor = new BodyEditor(
+    document.querySelector<HTMLCanvasElement>('#canvas')!
+)
+const gui = new dat.GUI()
 
 window.addEventListener('keydown', function (event) {
-    if (!isTabActive()) {
-        return
-    }
     switch (event.code) {
         case 'KeyX':
-            updateGradioCheckbox(
-                gradioApp().querySelector('#threedopenpose_move_mode')!,
-                true
-            )
+            editor.MoveMode = true
+            gui.updateDisplay()
             break
         case 'KeyD':
-            editor?.RemoveBody()
+            editor.RemoveBody()
             break
     }
 })
 
 window.addEventListener('keyup', function (event) {
-    if (!isTabActive()) {
-        return
-    }
     switch (event.code) {
         case 'KeyX':
-            updateGradioCheckbox(
-                gradioApp().querySelector('#threedopenpose_move_mode')!,
-                false
-            )
+            editor.MoveMode = false
+            gui.updateDisplay()
             break
     }
 })
+
+gui.width = 300
+
+CreateLanguageFolder(gui)
+
+gui.add(editor, 'MakeImages').name(
+    i18n.t('Generate Skeleton/Depth/Normal/Canny Map')
+)
+
+gui.add(editor, 'DetectFromImage').name(i18n.t('Detect From Image'))
+
+gui.add(options, 'setBackground').name(i18n.t('Set Background Image'))
+
+gui.add(editor, 'SaveScene').name(i18n.t('Save Scene'))
+gui.add(editor, 'LoadScene').name(i18n.t('Load Scene'))
+gui.add(editor, 'RestoreLastSavedScene').name(i18n.t('Restore Last Scene'))
+
+gui.add(editor, 'Undo').name(i18n.t('Undo'))
+gui.add(editor, 'Redo').name(i18n.t('Redo'))
+
+gui.add(editor, 'SetRandomPose').name(i18n.t('Set Random Pose [NEW]'))
+
+options['Width'] = editor.Width
+options['Height'] = editor.Height
+gui.add(options, 'Width', 128, 5000)
+    .name(i18n.t('Width'))
+    .onChange(() => {
+        options.autoSize = false
+    })
+gui.add(options, 'Height', 128, 5000)
+    .name(i18n.t('Height'))
+    .onChange(() => {
+        options.autoSize = false
+    })
+
+function UpdateSize() {
+    if (options.autoSize) {
+        options['Width'] = editor.Width
+        options['Height'] = editor.Height
+
+        gui.updateDisplay()
+    }
+}
+
+UpdateSize()
+
+gui.add(editor, 'CopyBodyZ').name(i18n.t('Duplicate Skeleton (Z-axis)'))
+gui.add(editor, 'CopyBodyX').name(i18n.t('Duplicate Skeleton (X-axis)'))
+gui.add(editor, 'RemoveBody').name(
+    i18n.t('Delete Selected Skeleton (Press D key)')
+)
+gui.add(editor, 'MoveMode').name(i18n.t('Move Mode (Press X key)'))
+gui.add(editor, 'OnlyHand').name(i18n.t('Only Hand'))
+
+// gui.add(editor, 'enableComposer').name(i18n.t('Show Edge Map'))
+gui.add(editor, 'enablePreview').name(i18n.t('Show Preview'))
+
+gui.add(editor, 'CameraNear', 0.1, 1000).name(i18n.t('Camera Near'))
+gui.add(editor, 'CameraFar', 0.1, 1000).name(i18n.t('Camera Far'))
+gui.add(editor, 'CameraFocalLength', 0.1, 100).name(
+    i18n.t('Camera Focal Length')
+)
+
+CreateBodyParamsControls(editor, gui)
+
+window.addEventListener('resize', () => {
+    UpdateSize()
+})
+
+editor.loadBodyData()

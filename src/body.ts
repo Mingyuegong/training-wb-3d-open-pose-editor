@@ -2,11 +2,9 @@ import * as THREE from 'three'
 import { Object3D } from 'three'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils'
 import type { TupleToUnion } from 'type-fest'
-let handFBXFileUrl =
-    '/file=extensions/sd-webui-3d-open-pose-editor/models/hand.fbx'
-let footFBXFileUrl =
-    '/file=extensions/sd-webui-3d-open-pose-editor/models/foot.fbx'
-import { LoadFBXFile } from './loader'
+import handFBXFileUrl from '../models/hand.fbx?url'
+import footFBXFileUrl from '../models/foot.fbx?url'
+import { LoadFBXFile, LoadGLTFile, LoadObjFile } from './loader'
 import { FindObjectItem } from './three-utils'
 
 const coco_body_keypoints_const = [
@@ -1274,8 +1272,7 @@ export const PartIndexMappingOfBlazePoseModel = {
     right_foot_index: 32,
 }
 
-let PosesLibraryUrl =
-    '/file=extensions/sd-webui-3d-open-pose-editor/src/poses/data.bin'
+const PosesLibraryUrl = new URL('./poses/data.bin', import.meta.url).href
 
 const PosesLibrary: [number, number, number][][] | null = []
 
@@ -1312,14 +1309,4 @@ export async function LoadPosesLibrary() {
 
         PosesLibrary?.push(temp)
     }
-}
-
-export function setFilePath(
-    handFBXFilePath: string,
-    footFBXFilePath: string,
-    posesLibraryPath: string
-) {
-    handFBXFileUrl = `/file=${handFBXFilePath}`
-    footFBXFileUrl = `/file=${footFBXFilePath}`
-    PosesLibraryUrl = `/file=${posesLibraryPath}`
 }

@@ -1,19 +1,19 @@
-const events = new EventTarget()
+import { download } from './util'
 
-export function AddScreenShotListener(
-    listener: (id: string, url: string, name: string) => void
-) {
-    events.addEventListener('screenshot', (e) => {
-        const detail = (e as CustomEvent).detail
-        listener(detail.id, detail.url, detail.name)
+document.querySelectorAll('.gallery img').forEach((img) =>
+    img.addEventListener('click', (e) => {
+        const image = e.target as HTMLImageElement
+        const title = image?.getAttribute('title') ?? ''
+        const url = image?.getAttribute('src') ?? ''
+        download(url, title)
     })
-}
+)
 
 export function SetScreenShot(id: string, url: string, name: string) {
-    const detail = {
-        id: id,
-        url: url,
-        name: name,
+    const img = document.querySelector<HTMLImageElement>(`.gallery #${id}`)
+
+    if (img) {
+        img.src = url
+        img.title = name
     }
-    events.dispatchEvent(new CustomEvent('screenshot', { detail }))
 }
