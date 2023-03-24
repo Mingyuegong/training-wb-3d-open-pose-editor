@@ -2,9 +2,8 @@
     "Width": "Width",
     "Height": "Height",
     "Generate Skeleton/Depth/Normal/Canny Map": "Generate Skeleton/Depth/Normal/Canny Map",
-    "Duplicate Skeleton (Z-axis)": "Duplicate Skeleton (Z-axis)",
-    "Duplicate Skeleton (X-axis)": "Duplicate Skeleton (X-axis)",
-    "Delete Selected Skeleton (Press D key)": "Delete Selected Skeleton (Press D key)",
+    "Duplicate Skeleton (Shift + D)": "Duplicate Skeleton (Shift + D)",
+    "Delete Skeleton (Del)": "Delete Skeleton (Del)",
     "Move Mode (Press X key)": "Move Mode (Press X key)",
     "Show Edge Map": "Show Edge Map",
     "Camera Near": "Camera Near",
@@ -41,8 +40,12 @@
     "Please select a skeleton!!": "Please select a skeleton!!",
     "Downloading Poses Library": "Downloading Poses Library",
     "Set Random Pose [NEW]": "Set Random Pose [NEW]",
-    "Redo": "Redo",
-    "Undo": "Undo",
+    "Redo": "Redo (Ctrl + Y / Shift + Ctrl + Z)",
+    "Undo": "Undo (Ctrl + Z)",
     "Detect From Image": "Detect From Image [NEW]",
-    "Downloading MediaPipe Pose Model": "Downloading MediaPipe Pose Model"
+    "Downloading MediaPipe Pose Model": "Downloading MediaPipe Pose Model",
+    "Edit": "Edit",
+    "Setting": "Setting",
+    "Bone Thickness": "Bone Thickness",
+    "Feedback": "Feedback"
 }

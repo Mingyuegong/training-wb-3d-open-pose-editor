@@ -8,7 +8,9 @@ import * as MediapipePose from '@mediapipe/pose'
 // Extract Pose from the window to solve the problem
 // To prevent optimization, just print it
 console.log('@mediapipe/pose', MediapipePose)
-const MyPose = (window as any).Pose as Class<Pose, [PoseConfig]>
+const MyPose = import.meta.env.DEV
+    ? MediapipePose.Pose
+    : ((window as any).Pose as Class<Pose, [PoseConfig]>)
 console.log('MyPose', MyPose)
 
 const pose = new MyPose({
@@ -35,6 +37,7 @@ export function DetectPosefromImage(image: HTMLImageElement): Promise<Results> {
         pose.reset()
         pose.send({ image: image })
         pose.onResults((result) => {
+            console.log(result)
             resolve(result)
         })
     })

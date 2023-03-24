@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import {
     Bone,
+    Material,
     MeshDepthMaterial,
     MeshNormalMaterial,
     MeshPhongMaterial,
@@ -17,35 +18,22 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 //     CCDIKSolver,
 //     IKS,
 // } from 'three/examples/jsm/animate/CCDIKSolver'
-
+import { CCDIKSolver } from './utils/CCDIKSolver'
 import Stats from 'three/examples/jsm/libs/stats.module'
 import {
     BodyControlor,
     CloneBody,
-    CreateTemplateBody,
     GetExtremityMesh,
-    GetRandomPose,
     IsExtremities,
     IsFoot,
     IsHand,
     IsNeedSaveObject,
     IsPickable,
-    LoadFoot,
-    LoadHand,
-    LoadPosesLibrary,
-    PartIndexMappingOfBlazePoseModel,
+    IsSkeleton,
+    IsTranslate,
 } from './body'
 import { options } from './config'
-import { SetScreenShot } from './image'
-import {
-    download,
-    downloadJson,
-    getCurrentTime,
-    getImage,
-    setBackgroundImage,
-    uploadImage,
-    uploadJson,
-} from './util'
+import { downloadJson, uploadJson } from './utils/transfer'
 
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
@@ -54,10 +42,8 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { LuminosityShader } from 'three/examples/jsm/shaders/LuminosityShader.js'
 import { SobelOperatorShader } from 'three/examples/jsm/shaders/SobelOperatorShader.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils'
-import Swal from 'sweetalert2'
-import i18n from './i18n'
-import { FindObjectItem } from './three-utils'
-import { DetectPosefromImage } from './detect'
+import { Oops } from './components'
+import { getCurrentTime } from './utils/time'
 
 interface BodyData {
     position: ReturnType<THREE.Vector3['toArray']>
@@ -84,17 +70,6 @@ interface CameraData {
 
 type EditorSelectEventHandler = (controlor: BodyControlor) => void
 type EditorUnselectEventHandler = () => void
-
-function Oops(error: any) {
-    Swal.fire({
-        icon: 'error',
-        title: i18n.t('Oops...')!,
-        text: i18n.t('Something went wrong!')! + '\n' + error?.stack ?? error,
-        footer: `<a href="https://github.com/ZhUyU1997/open-pose-editor/issues">${i18n.t(
-            'If the problem persists, please click here to ask a question.'
-        )}</a>`,
-    })
-}
 
 interface TransformValue {
     scale: Object3D['scale']
@@ -129,15 +104,16 @@ export class BodyEditor {
     alight: THREE.AmbientLight
     raycaster = new THREE.Raycaster()
     IsClick = false
-    stats: Stats
+    stats: Stats | undefined
 
     // ikSolver?: CCDIKSolver
     composer?: EffectComposer
     effectSobel?: ShaderPass
     enableComposer = false
     enablePreview = true
+    paused = false
 
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(canvas: HTMLCanvasElement, statsElem?: Element) {
         this.renderer = new THREE.WebGLRenderer({
             canvas,
             antialias: true,
@@ -226,8 +202,10 @@ export class BodyEditor {
         // // Setup post-processing step
         // this.setupPost();
 
-        this.stats = Stats()
-        document.body.appendChild(this.stats.dom)
+        if (statsElem) {
+            this.stats = Stats()
+            statsElem.appendChild(this.stats.dom)
+        }
         this.animate()
         this.handleResize()
         this.AutoSaveScene()
@@ -307,14 +285,21 @@ export class BodyEditor {
     }
 
     handleKeyDown(e: KeyboardEvent) {
+        if (this.paused) {
+            return
+        }
         if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey) && e.shiftKey) {
             this.Redo()
-        } else if (e.code === 'KeyR' && (e.ctrlKey || e.metaKey)) {
+        } else if (e.code === 'KeyY' && (e.ctrlKey || e.metaKey)) {
             this.Redo()
             // prevent brower refresh
             e.preventDefault()
         } else if (e.code === 'KeyZ' && (e.ctrlKey || e.metaKey)) {
             this.Undo()
+        } else if (e.code === 'KeyD' && e.shiftKey) {
+            this.CopySelectedBody()
+        } else if (e.key === 'Delete') {
+            this.RemoveBody()
         }
     }
 
@@ -347,10 +332,33 @@ export class BodyEditor {
                 )
             }
             this.orbitControls.enabled = true
+
+            this.saveSelectedBodyControlor?.ResetAllTargetsPosition()
         })
     }
+
+    ikSolver?: CCDIKSolver
+    saveSelectedBodyControlor?: BodyControlor
+
+    updateSelectedBodyIKSolver() {
+        const body = this.getSelectedBody() ?? undefined
+
+        if (body !== this.saveSelectedBodyControlor) {
+            this.saveSelectedBodyControlor = body
+                ? new BodyControlor(body!)
+                : undefined
+            this.ikSolver = body
+                ? this.saveSelectedBodyControlor?.GetIKSolver()
+                : undefined
+        }
+
+        if (IsTranslate(this.getSelectedPart()?.name ?? ''))
+            this.ikSolver?.update()
+        else this.saveSelectedBodyControlor?.ResetAllTargetsPosition()
+    }
+
     render(width: number = this.Width, height: number = this.Height) {
-        // this.ikSolver?.update()
+        this.updateSelectedBodyIKSolver()
 
         this.renderer.setViewport(0, 0, width, height)
         this.renderer.setScissor(0, 0, width, height)
@@ -430,11 +438,23 @@ export class BodyEditor {
         return this.outputRenderer.domElement.toDataURL('image/png')
     }
     animate() {
+        if (this.paused) {
+            return
+        }
         requestAnimationFrame(this.animate.bind(this))
         this.handleResize()
         this.render()
         if (this.enablePreview) this.renderPreview()
-        this.stats.update()
+        this.stats?.update()
+    }
+
+    pause() {
+        this.paused = true
+    }
+
+    resume() {
+        this.paused = false
+        this.animate()
     }
 
     getAncestors(o: Object3D) {
@@ -474,15 +494,12 @@ export class BodyEditor {
     }
 
     onMouseDown(event: MouseEvent) {
+        const x = event.offsetX - this.renderer.domElement.offsetLeft
+        const y = event.offsetY - this.renderer.domElement.offsetTop
         this.raycaster.setFromCamera(
             {
-                x:
-                    (event.clientX / this.renderer.domElement.clientWidth) * 2 -
-                    1,
-                y:
-                    -(event.clientY / this.renderer.domElement.clientHeight) *
-                        2 +
-                    1,
+                x: (x / this.renderer.domElement.clientWidth) * 2 - 1,
+                y: -(y / this.renderer.domElement.clientHeight) * 2 + 1,
             },
             this.camera
         )
@@ -491,8 +508,13 @@ export class BodyEditor {
                 this.scene.children.filter((o) => o?.name === 'torso'),
                 true
             )
-        const intersectedObject: THREE.Object3D | null =
-            intersects.length > 0 ? intersects[0].object : null
+        // If read_point is found, choose it first
+        const point = intersects.find((o) => o.object.name === 'red_point')
+        const intersectedObject: THREE.Object3D | null = point
+            ? point.object
+            : intersects.length > 0
+            ? intersects[0].object
+            : null
         const name = intersectedObject ? intersectedObject.name : ''
         let obj: Object3D | null = intersectedObject
 
@@ -527,8 +549,15 @@ export class BodyEditor {
 
                 if (obj) {
                     console.log(obj.name)
-                    this.transformControl.setMode('rotate')
-                    this.transformControl.setSpace('local')
+
+                    if (IsTranslate(obj.name)) {
+                        this.transformControl.setMode('translate')
+                        this.transformControl.setSpace('world')
+                    } else {
+                        this.transformControl.setMode('rotate')
+                        this.transformControl.setSpace('local')
+                    }
+
                     this.transformControl.attach(obj)
 
                     const body = this.getBodyByPart(obj)
@@ -550,6 +579,16 @@ export class BodyEditor {
             })
     }
 
+    traverseBodies(handle: (o: Object3D) => void) {
+        this.scene.children
+            .filter((o) => o?.name === 'torso')
+            .forEach((o) => {
+                o.traverse((child) => {
+                    handle(child)
+                })
+            })
+    }
+
     traverseExtremities(handle: (o: THREE.Mesh) => void) {
         this.scene.children
             .filter((o) => o?.name === 'torso')
@@ -562,13 +601,14 @@ export class BodyEditor {
             })
     }
 
-    hideExtremities() {
+    onlyShowSkeleton() {
         const recoveryArr: Object3D[] = []
-        this.traverseExtremities((o) => {
-            if (o.visible == true) {
-                o.visible = false
-
-                recoveryArr.push(o)
+        this.traverseBodies((o) => {
+            if (IsSkeleton(o.name) === false) {
+                if (o.visible == true) {
+                    o.visible = false
+                    recoveryArr.push(o)
+                }
             }
         })
 
@@ -601,6 +641,8 @@ export class BodyEditor {
             v?.attach(k)
         }
 
+        map.clear()
+
         this.scene.children
             .filter((o) => o?.name === 'torso')
             .forEach((o) => {
@@ -621,32 +663,23 @@ export class BodyEditor {
     }
 
     changeHandMaterial(type: 'depth' | 'normal' | 'phone') {
-        let initType = 'depth'
+        const map = new Map<THREE.Mesh, Material | Material[]>()
         this.traverseExtremities((child) => {
             const o = GetExtremityMesh(child)
             if (!o) return
-            if (o.material) {
-                if (o.material instanceof MeshNormalMaterial)
-                    initType = 'normal'
-                if (o.material instanceof MeshPhongMaterial) initType = 'phone'
-            }
 
+            map.set(o, o.material)
             if (type == 'depth') o.material = new MeshDepthMaterial()
             else if (type == 'normal') o.material = new MeshNormalMaterial()
             else if (type == 'phone') o.material = new MeshPhongMaterial()
         })
 
         return () => {
-            this.traverseExtremities((child) => {
-                const o = GetExtremityMesh(child)
-                if (!o) return
+            for (const [k, v] of map.entries()) {
+                k.material = v
+            }
 
-                if (initType == 'depth') o.material = new MeshDepthMaterial()
-                else if (initType == 'normal')
-                    o.material = new MeshNormalMaterial()
-                else if (initType == 'phone')
-                    o.material = new MeshPhongMaterial()
-            })
+            map.clear()
         }
     }
 
@@ -707,18 +740,14 @@ export class BodyEditor {
     }
 
     Capture() {
-        const restoreExtremities = this.hideExtremities()
+        const restore = this.onlyShowSkeleton()
 
         this.renderOutput()
         const imgData = this.getOutputPNG()
-        const fileName = 'pose_' + getCurrentTime()
 
-        restoreExtremities()
+        restore()
 
-        return {
-            imgData,
-            fileName,
-        }
+        return imgData
     }
 
     CaptureCanny() {
@@ -728,15 +757,11 @@ export class BodyEditor {
         this.renderOutput()
 
         const imgData = this.getOutputPNG()
-        const fileName = 'canny_' + getCurrentTime()
 
         this.showSkeleten(map)
         restore()
 
-        return {
-            imgData,
-            fileName,
-        }
+        return imgData
     }
 
     CaptureNormal() {
@@ -746,16 +771,12 @@ export class BodyEditor {
         this.renderOutput()
 
         const imgData = this.getOutputPNG()
-        const fileName = 'normal_' + getCurrentTime()
 
         this.showSkeleten(map)
         restore()
         restoreHand()
 
-        return {
-            imgData,
-            fileName,
-        }
+        return imgData
     }
 
     CaptureDepth() {
@@ -768,16 +789,12 @@ export class BodyEditor {
         restoreCamera()
 
         const imgData = this.getOutputPNG()
-        const fileName = 'depth_' + getCurrentTime()
 
         this.showSkeleten(map)
         restore()
         restoreHand()
 
-        return {
-            imgData,
-            fileName,
-        }
+        return imgData
     }
 
     MakeImages() {
@@ -788,27 +805,43 @@ export class BodyEditor {
 
         this.transformControl.detach()
 
-        {
-            const { imgData, fileName } = this.Capture()
-            SetScreenShot('pose', imgData, fileName)
-        }
-        {
-            const { imgData, fileName } = this.CaptureDepth()
-            SetScreenShot('depth', imgData, fileName)
-        }
-        {
-            const { imgData, fileName } = this.CaptureNormal()
-            SetScreenShot('normal', imgData, fileName)
-        }
-
-        {
-            const { imgData, fileName } = this.CaptureCanny()
-            SetScreenShot('canny', imgData, fileName)
-        }
+        const poseImage = this.Capture()
+        const depthImage = this.CaptureDepth()
+        const normalImage = this.CaptureNormal()
+        const cannyImage = this.CaptureCanny()
 
         this.renderer.setClearColor(0x000000, 0)
         this.axesHelper.visible = true
         this.gridHelper.visible = true
+
+        return {
+            pose: poseImage,
+            depth: depthImage,
+            normal: normalImage,
+            canny: cannyImage,
+        }
+    }
+
+    CopySelectedBody() {
+        const list = this.scene.children.filter((o) => o?.name === 'torso')
+
+        const selectedBody = this.getSelectedBody()
+
+        if (!selectedBody && list.length !== 0) return
+
+        const body =
+            list.length === 0 ? CloneBody() : SkeletonUtils.clone(selectedBody!)
+
+        if (!body) return
+
+        this.pushCommand(this.CreateAddBodyCommand(body))
+
+        this.scene.add(body)
+        this.fixFootVisible()
+        this.transformControl.setMode('translate')
+        this.transformControl.setSpace('world')
+
+        this.transformControl.attach(body)
     }
 
     CopyBodyZ() {
@@ -909,16 +942,29 @@ export class BodyEditor {
             return frustum.intersectsSphere(sphere)
         })
     }
-
+    isMoveMode = false
     get MoveMode() {
-        return this.transformControl.mode == 'translate'
+        return this.isMoveMode
     }
     set MoveMode(move: boolean) {
-        this.transformControl.setMode(move ? 'translate' : 'rotate')
+        let IsTranslateMode = move
+        this.isMoveMode = move
 
-        if (move) {
+        const name = this.getSelectedPart()?.name
+
+        if (name && IsTranslate(name)) {
+            IsTranslateMode = true
+        } else if (move) {
             const obj = this.getSelectedBody()
             if (obj) this.transformControl.attach(obj)
+        }
+
+        if (IsTranslateMode) {
+            this.transformControl.setMode('translate')
+            this.transformControl.setSpace('world')
+        } else {
+            this.transformControl.setMode('rotate')
+            this.transformControl.setSpace('local')
         }
     }
     get Width() {
@@ -958,13 +1004,14 @@ export class BodyEditor {
         if (size.width == this.Width && size.height === this.Height) return
 
         const canvas = this.renderer.domElement
+        if (canvas.clientWidth == 0 || canvas.clientHeight == 0) return
         this.camera.aspect = canvas.clientWidth / canvas.clientHeight
 
         this.camera.updateProjectionMatrix()
 
-        console.log(canvas.clientWidth, canvas.clientHeight)
+        // console.log(canvas.clientWidth, canvas.clientHeight)
         this.renderer.setSize(canvas.clientWidth, canvas.clientHeight, false)
-        console.log(this.Width, this.Height)
+        // console.log(this.Width, this.Height)
     }
 
     initEdgeComposer() {
@@ -988,6 +1035,7 @@ export class BodyEditor {
         effectSobel.uniforms['resolution'].value.y =
             this.Height * window.devicePixelRatio
         this.composer.addPass(effectSobel)
+        this.effectSobel = effectSobel
     }
 
     changeComposerResoultion(width: number, height: number) {
@@ -999,86 +1047,14 @@ export class BodyEditor {
                 height * window.devicePixelRatio
         }
     }
-    async SetRandomPose() {
-        const bodies = this.scene.children.filter((o) => o.name == 'torso')
-        const body = bodies.length == 1 ? bodies[0] : this.getSelectedBody()
-        if (!body) {
-            await Swal.fire(i18n.t('Please select a skeleton!!'))
-            return
+
+    InitScene() {
+        const body = CloneBody()
+
+        if (body) {
+            this.scene.add(body)
+            this.dlight.target = body
         }
-
-        try {
-            let poseData = GetRandomPose()
-            if (poseData) {
-                new BodyControlor(body).SetPose(poseData)
-                return
-            }
-
-            let loading = true
-
-            setTimeout(() => {
-                if (loading)
-                    Swal.fire({
-                        title: i18n.t('Downloading Poses Library') ?? '',
-                        didOpen: () => {
-                            Swal.showLoading()
-                        },
-                    })
-            }, 500)
-
-            await LoadPosesLibrary()
-            loading = false
-            Swal.hideLoading()
-            Swal.close()
-
-            poseData = GetRandomPose()
-            if (poseData) {
-                new BodyControlor(body).SetPose(poseData)
-                return
-            }
-        } catch (error) {
-            Swal.hideLoading()
-            Swal.close()
-
-            Oops(error)
-            console.error(error)
-            return
-        }
-    }
-
-    async loadBodyData() {
-        const hand = await LoadHand((loaded) => {
-            if (loaded >= 100) {
-                Swal.hideLoading()
-                Swal.close()
-            } else if (Swal.isVisible() == false) {
-                Swal.fire({
-                    title: i18n.t('Downloading Hand Model') ?? '',
-                    didOpen: () => {
-                        Swal.showLoading()
-                    },
-                })
-            }
-        })
-        const foot = await LoadFoot((loaded) => {
-            if (loaded >= 100) {
-                Swal.hideLoading()
-                Swal.close()
-            } else if (Swal.isVisible() == false) {
-                Swal.fire({
-                    title: i18n.t('Downloading Foot Model') ?? '',
-                    didOpen: () => {
-                        Swal.showLoading()
-                    },
-                })
-            }
-        })
-        CreateTemplateBody(hand, foot)
-        // scene.add( object );
-        const body = CloneBody()!
-
-        this.scene.add(body)
-        this.dlight.target = body
     }
 
     get CameraNear() {
@@ -1228,6 +1204,9 @@ export class BodyEditor {
             this.ClearScene()
 
             if (bodiesObject.length > 0) this.scene.add(...bodiesObject)
+            for (const body of bodiesObject) {
+                new BodyControlor(body).ResetAllTargetsPosition()
+            }
             this.RestoreCamera(camera)
         } catch (error: any) {
             Oops(error)
@@ -1310,64 +1289,24 @@ export class BodyEditor {
 
     //     CreateLink2(objects['right_eye'], objects['right_ear'])
     // }
-
-    async DetectFromImage() {
+    async GetBodyToSetPose() {
         const bodies = this.scene.children.filter((o) => o.name == 'torso')
         const body = bodies.length == 1 ? bodies[0] : this.getSelectedBody()
-        if (!body) {
-            await Swal.fire(i18n.t('Please select a skeleton!!'))
-            return
-        }
+        return body
+    }
+    async SetPose(poseData: [number, number, number][]) {
+        const body = await this.GetBodyToSetPose()
 
-        try {
-            let loading = true
+        if (!body) return
+        // if not detach it, skeleten will shake
+        this.transformControl.detach()
+        new BodyControlor(body).SetPose(poseData)
+    }
+    async SetBlazePose(positions: [number, number, number][]) {
+        const body = await this.GetBodyToSetPose()
+        if (!body) return
 
-            const dataUrl = await uploadImage()
-
-            if (!dataUrl) return
-
-            const image = await getImage(dataUrl)
-            setBackgroundImage(dataUrl)
-
-            setTimeout(() => {
-                if (loading)
-                    Swal.fire({
-                        title: i18n.t('Downloading MediaPipe Pose Model') ?? '',
-                        didOpen: () => {
-                            Swal.showLoading()
-                        },
-                    })
-            }, 500)
-
-            const result = await DetectPosefromImage(image)
-            loading = false
-            Swal.hideLoading()
-            Swal.close()
-
-            if (result) {
-                const positions: [number, number, number][] =
-                    result.poseWorldLandmarks.map(({ x, y, z }) => [
-                        x * 100,
-                        -y * 100,
-                        -z * 100,
-                    ])
-
-                // this.drawPoseData(
-                //     result.poseWorldLandmarks.map(({ x, y, z }) =>
-                //         new THREE.Vector3().fromArray([x * 100, -y * 100, -z * 100])
-                //     )
-                // )
-
-                new BodyControlor(body!).SetBlazePose(positions)
-                return
-            }
-        } catch (error) {
-            Swal.hideLoading()
-            Swal.close()
-
-            Oops(error)
-            console.error(error)
-            return
-        }
+        this.transformControl.detach()
+        new BodyControlor(body).SetBlazePose(positions)
     }
 }

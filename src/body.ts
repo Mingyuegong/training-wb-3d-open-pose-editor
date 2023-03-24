@@ -2,10 +2,13 @@ import * as THREE from 'three'
 import { Object3D } from 'three'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils'
 import type { TupleToUnion } from 'type-fest'
-import handFBXFileUrl from '../models/hand.fbx?url'
-import footFBXFileUrl from '../models/foot.fbx?url'
-import { LoadFBXFile, LoadGLTFile, LoadObjFile } from './loader'
-import { FindObjectItem } from './three-utils'
+import { LoadFBXFile, LoadGLTFile, LoadObjFile } from './utils/loader'
+import {
+    FindObjectItem,
+    GetLocalPosition,
+    GetWorldPosition,
+} from './utils/three-utils'
+import { CCDIKSolver } from './utils/CCDIKSolver'
 
 const coco_body_keypoints_const = [
     'nose',
@@ -71,7 +74,7 @@ const connect_color = [
     [255, 0, 85], // 17
 ] as const
 
-const JointRadius = 1
+const BoneThickness = 1
 
 function ToHexColor([r, g, b]: readonly [number, number, number]) {
     return (r << 16) + (g << 8) + b
@@ -119,7 +122,8 @@ function CreateLink(parent: Object3D, endObject: THREE.Object3D) {
 function CreateLink2(
     parent: Object3D,
     endObject: THREE.Object3D,
-    start: THREE.Object3D | THREE.Vector3
+    start: THREE.Object3D | THREE.Vector3,
+    thickness: number = BoneThickness
 ) {
     const startPosition =
         start instanceof THREE.Vector3 ? start.clone() : start.position.clone()
@@ -135,7 +139,7 @@ function CreateLink2(
         opacity: 0.6,
         transparent: true,
     })
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(JointRadius), material)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(thickness), material)
     mesh.name = parent.name + '_link_' + endObject.name
 
     // 将拉伸后的球体放在中点，并计算旋转轴和jiaodu
@@ -155,7 +159,8 @@ function CreateLink4(
     startObject: THREE.Object3D,
     endObject: THREE.Object3D,
     startName: string,
-    endName: string
+    endName: string,
+    thickness: number = BoneThickness
 ) {
     const startPosition = new THREE.Vector3(0, 0, 0)
     const endPostion = endObject.position
@@ -167,7 +172,7 @@ function CreateLink4(
         opacity: 0.6,
         transparent: true,
     })
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(JointRadius), material)
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(thickness), material)
     mesh.name = startName + '_link_' + endName
 
     // 将拉伸后的球体放在中点，并计算旋转轴和角度
@@ -176,6 +181,8 @@ function CreateLink4(
     const unit = new THREE.Vector3(1, 0, 0)
     const axis = unit.clone().cross(v)
     const angle = unit.clone().angleTo(v)
+    // Another method
+    //     new THREE.Quaternion().setFromUnitVectors(...)
 
     mesh.scale.copy(new THREE.Vector3(distance / 2, 1, 1))
     mesh.position.copy(origin)
@@ -183,11 +190,17 @@ function CreateLink4(
     startObject.add(mesh)
 }
 
+function UpdateJointSphere(obj: Object3D, thickness = BoneThickness) {
+    const name = obj.name + '_joint_sphere'
+    obj.getObjectByName(name)?.scale.setScalar(thickness)
+}
+
 function UpdateLink4(
     startObject: Object3D,
     endObject: Object3D,
     startName: string,
-    endName: string
+    endName: string,
+    thickness = BoneThickness
 ) {
     const startPosition = new THREE.Vector3(0, 0, 0)
     const endPostion = endObject.position
@@ -199,21 +212,45 @@ function UpdateLink4(
     const axis = unit.clone().cross(v)
     const angle = unit.clone().angleTo(v)
     const mesh = startObject.getObjectByName(startName + '_link_' + endName)!
-    mesh.scale.copy(new THREE.Vector3(distance / 2, 1, 1))
+    mesh.scale.copy(
+        new THREE.Vector3(
+            distance / 2,
+            thickness / BoneThickness,
+            thickness / BoneThickness
+        )
+    )
     mesh.position.copy(origin)
     mesh.setRotationFromAxisAngle(axis.normalize(), angle)
+
+    UpdateJointSphere(startObject, thickness)
+    UpdateJointSphere(endObject, thickness)
 }
 
-function UpdateLink2(startObject: Object3D, endObject: Object3D) {
-    UpdateLink4(startObject, endObject, startObject.name, endObject.name)
+function UpdateLink2(
+    startObject: Object3D,
+    endObject: Object3D,
+    thickness = BoneThickness
+) {
+    UpdateLink4(
+        startObject,
+        endObject,
+        startObject.name,
+        endObject.name,
+        thickness
+    )
 }
 
-function Joint(name: string) {
-    const object = new THREE.Mesh(
-        new THREE.SphereGeometry(JointRadius),
+function Joint(name: string, thickness: number = BoneThickness) {
+    const object = new THREE.Group()
+    object.name = name
+
+    const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(thickness),
         new THREE.MeshBasicMaterial({ color: GetPresetColorOfJoint(name) })
     )
-    object.name = name
+
+    sphere.name = name + '_joint_sphere'
+    object.add(sphere)
     return object
 }
 
@@ -225,11 +262,13 @@ function Torso(x: number, y: number, z: number) {
     object.name = 'torso'
 
     // for debug
-    // const torso = new THREE.Mesh(
-    //     new THREE.SphereGeometry(JointRadius),
-    //     new THREE.MeshBasicMaterial({ color: 0x888888 })
-    // )
-    // object.add(torso)
+    const torso = new THREE.Mesh(
+        new THREE.SphereGeometry(BoneThickness),
+        new THREE.MeshBasicMaterial({ color: 0x888888 })
+    )
+
+    torso.name = 'center'
+    object.add(torso)
 
     object.translateX(x)
     object.translateY(y)
@@ -446,6 +485,32 @@ export function CreateTemplateBody(hand: Object3D, foot: Object3D) {
     right_ankle.add(right_foot)
     left_ankle.add(left_foot)
     templateBody = torso
+
+    torso.add(CreateIKTarget(torso, left_wrist, 'left_wrist_target'))
+    torso.add(CreateIKTarget(torso, right_wrist, 'right_wrist_target'))
+    torso.add(CreateIKTarget(torso, left_ankle, 'left_ankle_target'))
+    torso.add(CreateIKTarget(torso, right_ankle, 'right_ankle_target'))
+}
+
+function CreateIKTarget(body: Object3D, effector: Object3D, name: string) {
+    const target = new THREE.Mesh(
+        new THREE.BoxGeometry(
+            BoneThickness * 5,
+            BoneThickness * 5,
+            BoneThickness * 5
+        ),
+        new THREE.MeshBasicMaterial({
+            color: 0x0088ff,
+            transparent: true,
+            opacity: 0.5,
+        })
+    )
+
+    const effector_pos = GetWorldPosition(effector)
+    target.position.copy(GetLocalPosition(body, effector_pos))
+    target.name = name
+
+    return target
 }
 
 const handModelInfo = {
@@ -469,7 +534,10 @@ const ExtremitiesMapping: Record<
     left_foot: footModelInfo,
     right_foot: footModelInfo,
 }
-export async function LoadHand(onLoading?: (loaded: number) => void) {
+export async function LoadHand(
+    handFBXFileUrl: string,
+    onLoading?: (loaded: number) => void
+) {
     const fbx = await LoadFBXFile(handFBXFileUrl, onLoading)
 
     // fbx.scale.multiplyScalar(10)
@@ -478,21 +546,33 @@ export async function LoadHand(onLoading?: (loaded: number) => void) {
     // this.scene.add();
     // const helper = new THREE.SkeletonHelper(mesh.parent!);
     // this.scene.add(helper);
+
+    // console.log(mesh.skeleton.bones)
     mesh.skeleton.bones.forEach((o) => {
         const point = new THREE.Mesh(
-            new THREE.SphereGeometry(0.5),
-            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+            new THREE.SphereGeometry(0.2),
+            new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                //  vertexColors: true,
+                depthTest: false,
+                // depthWrite: false,
+                // toneMapped: false,
+                // transparent: true,
+            })
         )
         point.name = 'red_point'
-        point.scale.setX(0.2)
-        point.position.copy(o.position)
+        // point.scale.setX(0.2)
+        // point.position.copy(o.position)
         o.add(point)
     })
 
     return fbx
 }
 
-export async function LoadFoot(onLoading?: (loaded: number) => void) {
+export async function LoadFoot(
+    footFBXFileUrl: string,
+    onLoading?: (loaded: number) => void
+) {
     const fbx = await LoadFBXFile(footFBXFileUrl, onLoading)
 
     console.log(fbx)
@@ -509,11 +589,11 @@ export async function LoadFoot(onLoading?: (loaded: number) => void) {
         if (o.name !== 'FootBone2') return
         const point = new THREE.Mesh(
             new THREE.SphereGeometry(0.1),
-            new THREE.MeshBasicMaterial({ color: 0xff0000 })
+            new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false })
         )
 
         point.name = 'red_point'
-        point.position.copy(o.position)
+        // point.position.copy(o.position)
         point.translateX(-0.3)
         o.add(point)
     })
@@ -548,13 +628,14 @@ export function IsNeedSaveObject(name: string) {
     if (IsVirtualPoint(name)) return true // virtual point
     if (name.startsWith(handModelInfo.bonePrefix)) return true
     if (name.startsWith(footModelInfo.bonePrefix)) return true
-
+    if (name.includes('_joint_sphere')) return true
     if (name.includes('_link_')) return true
     return false
 }
 
 const pickableObjectNames: string[] = [
     'torso',
+    'nose',
     'neck',
     'right_shoulder',
     'left_shoulder',
@@ -569,6 +650,10 @@ const pickableObjectNames: string[] = [
     'left_shoulder_inner',
     'right_hip_inner',
     'left_hip_inner',
+    'left_wrist_target',
+    'right_wrist_target',
+    'left_ankle_target',
+    'right_ankle_target',
 ]
 
 export function IsPickable(name: string) {
@@ -576,6 +661,11 @@ export function IsPickable(name: string) {
     if (name.startsWith(handModelInfo.bonePrefix)) return true
     if (name.startsWith(footModelInfo.bonePrefix)) return true
 
+    return false
+}
+
+export function IsTranslate(name: string) {
+    if (name.endsWith('_target')) return true
     return false
 }
 
@@ -587,32 +677,48 @@ export function IsFoot(name: string) {
     return ['left_foot', 'right_foot'].includes(name)
 }
 
+export function IsSkeleton(name: string) {
+    if (name == 'torso') return true
+    if (coco_body_keypoints.includes(name)) return true
+    if (IsVirtualPoint(name)) return true // virtual point
+    if (name.includes('_joint_sphere')) return true
+    if (name.includes('_link_')) return true
+    return false
+}
+
 export function IsExtremities(name: string) {
     return ['left_hand', 'right_hand', 'left_foot', 'right_foot'].includes(name)
 }
 
-type ControlPartName =
-    | TupleToUnion<typeof coco_body_keypoints_const>
-    | 'left_shoulder_inner'
-    | 'right_shoulder_inner'
-    | 'left_hip_inner'
-    | 'right_hip_inner'
-    | 'five'
-    | 'right_hand'
-    | 'left_hand'
-    | 'left_foot'
-    | 'right_foot'
-    | 'torso'
+const ControlablePart = [
+    ...coco_body_keypoints_const,
+    'left_shoulder_inner',
+    'right_shoulder_inner',
+    'left_hip_inner',
+    'right_hip_inner',
+    'five',
+    'right_hand',
+    'left_hand',
+    'left_foot',
+    'right_foot',
+    'torso',
+
+    'left_wrist_target',
+    'right_wrist_target',
+    'left_ankle_target',
+    'right_ankle_target',
+] as const
+
+type ControlPartName = TupleToUnion<typeof ControlablePart>
+
 export class BodyControlor {
     body: Object3D
     part: Record<ControlPartName, Object3D> = {} as any
     constructor(o: Object3D) {
         this.body = o
         this.body.traverse((o) => {
-            if (coco_body_keypoints.includes(o.name as any)) {
-                this.part[
-                    o.name as TupleToUnion<typeof coco_body_keypoints_const>
-                ] = o
+            if (ControlablePart.includes(o.name as ControlPartName)) {
+                this.part[o.name as ControlPartName] = o
             }
         })
 
@@ -645,65 +751,24 @@ export class BodyControlor {
         return pos
     }
 
-    UpdateLink(name: ControlPartName) {
-        switch (name) {
-            case 'left_hip':
-                UpdateLink4(
-                    this.part['left_hip_inner'],
-                    this.part['left_hip'],
-                    'neck',
-                    'left_hip'
-                )
-                break
-            case 'right_hip':
-                UpdateLink4(
-                    this.part['right_hip_inner'],
-                    this.part['right_hip'],
-                    'neck',
-                    'right_hip'
-                )
-                break
-            case 'right_shoulder':
-                UpdateLink4(
-                    this.part['right_shoulder_inner'],
-                    this.part['right_shoulder'],
-                    'neck',
-                    'right_shoulder'
-                )
-                break
-            case 'left_shoulder':
-                UpdateLink4(
-                    this.part['left_shoulder_inner'],
-                    this.part['left_shoulder'],
-                    'neck',
-                    'left_shoulder'
-                )
-                break
-            case 'torso':
-                break
-            case 'five':
-                break
-            case 'neck':
-                break
-            case 'left_shoulder_inner':
-                break
-            case 'right_shoulder_inner':
-                break
-            case 'right_hand':
-                break
-            case 'left_hand':
-                break
-            case 'left_hip_inner':
-                break
-            case 'right_hip_inner':
-                break
-            case 'right_foot':
-                break
-            case 'left_foot':
-                break
-            default:
-                UpdateLink2(this.part[name].parent!, this.part[name])
-                break
+    UpdateLink(name: ControlPartName, thickness = BoneThickness) {
+        if (
+            [
+                'left_hip',
+                'right_hip',
+                'right_shoulder',
+                'left_shoulder',
+            ].includes(name)
+        )
+            UpdateLink4(
+                this.part[`${name}_inner` as ControlPartName],
+                this.part[name],
+                'neck',
+                name,
+                thickness
+            )
+        else if (name !== 'neck' && coco_body_keypoints.includes(name)) {
+            UpdateLink2(this.part[name].parent!, this.part[name], thickness)
         }
     }
 
@@ -945,7 +1010,10 @@ export class BodyControlor {
         templateBody?.traverse((o) => {
             if (o.name in this.part) {
                 const name = o.name as ControlPartName
-                this.part[name].position.copy(o.position)
+
+                if (name == 'torso') this.part[name].position.setY(o.position.y)
+                else this.part[name].position.copy(o.position)
+
                 this.part[name].rotation.copy(o.rotation)
                 this.part[name].scale.copy(o.scale)
                 this.UpdateLink(name)
@@ -1102,6 +1170,7 @@ export class BodyControlor {
 
             this.UpdateLink(name)
         }
+        this.ResetAllTargetsPosition()
     }
     SetPose(rawData: [number, number, number][]) {
         this.ResetPose()
@@ -1115,10 +1184,9 @@ export class BodyControlor {
             })
         ) as Record<keyof typeof PartIndexMappingOfPoseModel, THREE.Vector3>
 
-        this.part['torso'].position.copy(
-            this.getMidpoint(data['Hips'], data['Chest'])
+        this.part['torso'].position.setY(
+            this.getMidpoint(data['Hips'], data['Chest']).y
         )
-
         this.Hips = this.getDistanceOf(data['Hips'], data['UpLeg_L']) * 2
         this.Thigh = this.getDistanceOf(data['UpLeg_L'], data['Leg_L'])
         this.LowerLeg = this.getDistanceOf(data['Leg_L'], data['Foot_L'])
@@ -1153,6 +1221,119 @@ export class BodyControlor {
                 name,
                 this.getDirectionVectorByParentOf(name, data[from], data[to])
             )
+        this.ResetAllTargetsPosition()
+    }
+
+    UpdateBones(thickness = BoneThickness) {
+        this.part['torso'].traverse((o) => {
+            if (o.name in this.part) {
+                const name = o.name as ControlPartName
+                this.UpdateLink(name, thickness)
+            }
+        })
+    }
+
+    get BoneThickness() {
+        return Math.abs(
+            this.part['neck'].getObjectByName('neck_joint_sphere')?.scale.x ??
+                BoneThickness
+        )
+    }
+
+    set BoneThickness(thickness: number) {
+        this.UpdateBones(thickness)
+    }
+
+    GetIKSolver() {
+        return new CCDIKSolver([
+            {
+                target: this.part['left_wrist_target'],
+                effector: this.part['left_wrist'],
+                links: [
+                    {
+                        index: this.part['left_elbow'],
+                        enabled: true,
+                    },
+                    {
+                        index: this.part['left_shoulder'],
+                        enabled: true,
+                    },
+                ],
+                iteration: 10,
+                minAngle: 0.0,
+                maxAngle: 1.0,
+            },
+            {
+                target: this.part['right_wrist_target'],
+                effector: this.part['right_wrist'],
+                links: [
+                    {
+                        index: this.part['right_elbow'],
+                        enabled: true,
+                    },
+                    {
+                        index: this.part['right_shoulder'],
+                        enabled: true,
+                    },
+                ],
+                iteration: 10,
+                minAngle: 0.0,
+                maxAngle: 1.0,
+            },
+            {
+                target: this.part['left_ankle_target'],
+                effector: this.part['left_ankle'],
+                links: [
+                    {
+                        index: this.part['left_knee'],
+                        enabled: true,
+                    },
+                    {
+                        index: this.part['left_hip'],
+                        enabled: true,
+                    },
+                ],
+                iteration: 10,
+                minAngle: 0.0,
+                maxAngle: 1.0,
+            },
+            {
+                target: this.part['right_ankle_target'],
+                effector: this.part['right_ankle'],
+                links: [
+                    {
+                        index: this.part['right_knee'],
+                        enabled: true,
+                    },
+                    {
+                        index: this.part['right_hip'],
+                        enabled: true,
+                    },
+                ],
+                iteration: 10,
+                minAngle: 0.0,
+                maxAngle: 1.0,
+            },
+        ])
+    }
+
+    ResetTargetPosition(
+        effectorName: ControlPartName,
+        targetName: ControlPartName
+    ) {
+        const body = this.part['torso']
+        const effector = this.part[effectorName]
+        const target = this.part[targetName]
+
+        const effector_pos = GetWorldPosition(effector)
+        target.position.copy(this.getLocalPosition(body, effector_pos))
+    }
+
+    ResetAllTargetsPosition() {
+        this.ResetTargetPosition('left_wrist', 'left_wrist_target')
+        this.ResetTargetPosition('right_wrist', 'right_wrist_target')
+        this.ResetTargetPosition('left_ankle', 'left_ankle_target')
+        this.ResetTargetPosition('right_ankle', 'right_ankle_target')
     }
 }
 
@@ -1272,8 +1453,6 @@ export const PartIndexMappingOfBlazePoseModel = {
     right_foot_index: 32,
 }
 
-const PosesLibraryUrl = new URL('./poses/data.bin', import.meta.url).href
-
 const PosesLibrary: [number, number, number][][] | null = []
 
 function getRandomInt(min: number, max: number) {
@@ -1288,8 +1467,8 @@ export function GetRandomPose() {
     return null
 }
 
-export async function LoadPosesLibrary() {
-    const response = await fetch(PosesLibraryUrl)
+export async function LoadPosesLibrary(posesLibraryUrl: string) {
+    const response = await fetch(posesLibraryUrl)
     const buffer = await response.arrayBuffer()
 
     console.log(buffer.byteLength)

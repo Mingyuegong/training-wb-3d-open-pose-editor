@@ -2,9 +2,8 @@
     "Width": "宽度",
     "Height": "高度",
     "Generate Skeleton/Depth/Normal/Canny Map": "生成骨架/深度/法线/Canny图",
-    "Duplicate Skeleton (Z-axis)": "复制骨架(Z方向)",
-    "Duplicate Skeleton (X-axis)": "复制骨架(X方向)",
-    "Delete Selected Skeleton (Press D key)": "删除选中骨架(按D键)",
+    "Duplicate Skeleton (Shift + D)": "复制骨架（Shift + D）",
+    "Delete Skeleton (Del)": "删除骨架（Del）",
     "Move Mode (Press X key)": "移动模式(按X键)",
     "Show Edge Map": "显示边缘图",
     "Camera Near": "相机near",
@@ -41,8 +40,12 @@
     "Please select a skeleton!!": "请选择骨架！",
     "Downloading Poses Library": "正在下载姿势库",
     "Set Random Pose [NEW]": "设置随机姿势 [新]",
-    "Redo": "重做",
-    "Undo": "撤销",
+    "Redo": "重做（Ctrl + Y / Shift + Ctrl + Z）",
+    "Undo": "撤销（Ctrl + Z）",
     "Detect From Image": "从图片中检测 [新]",
-    "Downloading MediaPipe Pose Model": "正在下载 MediaPipe 姿势模型"
+    "Downloading MediaPipe Pose Model": "正在下载 MediaPipe 姿势模型",
+    "Edit": "编辑",
+    "Setting": "设置",
+    "Bone Thickness": "骨骼厚度",
+    "Feedback": "反馈"
 }
