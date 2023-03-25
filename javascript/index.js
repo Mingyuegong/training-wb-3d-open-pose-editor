@@ -1,5 +1,4 @@
 (function() {
-  let e;
   const n = () => {
     const o = gradioApp().querySelector(
       "#tab_threedopenpose"
@@ -9,8 +8,10 @@
   onUiLoaded(async () => {
     console.log("sd-webui-3d-open-pose-editor: onUiLoaded");
     const { Main: o } = await import("./lazy/main.js");
-    e = await o();
+    window.openpose3dglobal = await o();
   }), onUiTabChange(() => {
-    e && (n() ? e.resume() : e.pause());
+    var e;
+    const o = (e = window.openpose3dglobal) == null ? void 0 : e.editor;
+    o && (n() ? o.resume() : o.pause());
   });
 })();
