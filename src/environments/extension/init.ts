@@ -26,24 +26,24 @@ function sendToControlNet(
     cannyTarget: string
 ) {
     const imageElems = element.querySelectorAll('div[data-testid="image"]')
-    if (poseImage && poseTarget != '-') {
+    if (poseImage && poseTarget != '' && poseTarget != '-') {
         updateGradioImage(imageElems[Number(poseTarget)], poseImage, 'pose.png')
     }
-    if (depthImage && depthTarget != '-') {
+    if (depthImage && depthTarget != '' && depthTarget != '-') {
         updateGradioImage(
             imageElems[Number(depthTarget)],
             depthImage,
             'depth.png'
         )
     }
-    if (normalImage && normalTarget != '-') {
+    if (normalImage && normalTarget != '' && normalTarget != '-') {
         updateGradioImage(
             imageElems[Number(normalTarget)],
             normalImage,
             'normal.png'
         )
     }
-    if (cannyImage && cannyTarget != '-') {
+    if (cannyImage && cannyTarget != '' && cannyTarget != '-') {
         updateGradioImage(
             imageElems[Number(cannyTarget)],
             cannyImage,

@@ -177,19 +177,42 @@ def main():
     css_path = root_path / "style.css"
 
     original_template_response = gr.routes.templates.TemplateResponse
-    head = f"""
+    head = """
     <script>
-        function gradioApp() {{
+        function waitForElement(parent, selector) {
+            return new Promise((resolve) => {
+                const observer = new MutationObserver(() => {
+                    if (!parent.querySelector(selector)) {
+                        return
+                    }
+                    observer.disconnect()
+                    resolve(undefined)
+                })
+
+                observer.observe(parent, {
+                    childList: true,
+                    subtree: true,
+                })
+
+                if (parent.querySelector(selector)) {
+                    resolve(undefined)
+                }
+            })
+        }
+        function gradioApp() {
             const elems = document.getElementsByTagName('gradio-app')
             const gradioShadowRoot = elems.length == 0 ? null : elems[0].shadowRoot
             return gradioShadowRoot ? gradioShadowRoot : document
-        }}
-        function onUiLoaded(callback){{
+        }
+        async function onUiLoaded(callback){
+            await waitForElement(gradioApp(), '#openpose3d_consts')
             callback()
-        }}
-        function onUiTabChange(callback){{
-        }}
+        }
+        function onUiTabChange(callback){
+        }
     </script>
+    """
+    head += f"""
     <script type="module">
         document.addEventListener("DOMContentLoaded", function() {{import("/file={js_path}")}})
     </script>

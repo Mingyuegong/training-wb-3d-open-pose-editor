@@ -31,11 +31,11 @@ export const updateGradioImage = async (
     const dt = new DataTransfer()
     dt.items.add(file)
 
-    const input = element.querySelector<HTMLInputElement>("input[type='file']")!
     element
         .querySelector<HTMLButtonElement>("button[aria-label='Clear']")
         ?.click()
     await waitForElementToBeRemoved(element, "button[aria-label='Clear']")
+    const input = element.querySelector<HTMLInputElement>("input[type='file']")!
     input.value = ''
     input.files = dt.files
     input.dispatchEvent(
