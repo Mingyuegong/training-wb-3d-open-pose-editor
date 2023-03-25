@@ -15,7 +15,7 @@ options['Height'] = 512
 options['autoSize'] = false
 
 function sendToControlNet(
-    element: Element,
+    container: Element,
     poseImage: string | null,
     poseTarget: string,
     depthImage: string | null,
@@ -25,6 +25,25 @@ function sendToControlNet(
     cannyImage: string | null,
     cannyTarget: string
 ) {
+    let element: Element | null | undefined =
+        container.querySelector('#controlnet')
+    if (!element) {
+        for (const spans of container.querySelectorAll<HTMLSpanElement>(
+            '.cursor-pointer > span'
+        )) {
+            if (!spans.textContent?.includes('ControlNet')) {
+                continue
+            }
+            if (spans.textContent?.includes('M2M')) {
+                continue
+            }
+            element = spans.parentElement?.parentElement
+        }
+        if (!element) {
+            console.error('ControlNet element not found')
+            return
+        }
+    }
     const imageElems = element.querySelectorAll('div[data-testid="image"]')
     if (poseImage && poseTarget != '' && poseTarget != '-') {
         updateGradioImage(imageElems[Number(poseTarget)], poseImage, 'pose.png')
@@ -66,11 +85,11 @@ window.openpose3d = {
         cannyImage: string | null,
         cannyTarget: string
     ) => {
-        const cnElem = gradioAppElem.querySelector(
-            '#txt2img_script_container #controlnet'
+        const container = gradioAppElem.querySelector(
+            '#txt2img_script_container'
         )!
         sendToControlNet(
-            cnElem,
+            container,
             poseImage,
             poseTarget,
             depthImage,
@@ -92,11 +111,11 @@ window.openpose3d = {
         cannyImage: string,
         cannyTarget: string
     ) => {
-        const cnElem = gradioAppElem.querySelector(
-            '#img2img_script_container #controlnet'
+        const container = gradioAppElem.querySelector(
+            '#img2img_script_container'
         )!
         sendToControlNet(
-            cnElem,
+            container,
             poseImage,
             poseTarget,
             depthImage,
