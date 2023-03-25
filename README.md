@@ -4,7 +4,7 @@ An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable
 
 # Preview
 
-![Preview](https://user-images.githubusercontent.com/42905588/227514865-f27c1936-12ce-4e81-b4d1-b08baa0745a8.png)
+![Preview](https://user-images.githubusercontent.com/42905588/227674599-21610711-7276-413c-aa36-cc5108e74dc3.png)
 
 # Installation
 
