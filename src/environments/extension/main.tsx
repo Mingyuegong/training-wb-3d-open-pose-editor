@@ -10,7 +10,7 @@ import { getImage } from '../../utils/image'
 import { uploadImage } from '../../utils/transfer'
 import { getCurrentTime } from '../../utils/time'
 
-import { onMakeImages, setBackgroundImage, SetScreenShot } from './image'
+import { setBackgroundImage, SetScreenShot } from './image'
 import Swal from 'sweetalert2'
 import { DetectPosefromImage } from '../../utils/detect'
 import {
@@ -94,7 +94,6 @@ export async function Main() {
                 const fileName = name + '_' + getCurrentTime()
                 SetScreenShot(name, imgData, fileName)
             }
-            onMakeImages()
         },
         async DetectFromImage() {
             const body = await editor.GetBodyToSetPose()
@@ -291,5 +290,8 @@ export async function Main() {
     await LoadBodyData()
     editor.InitScene()
 
-    return editor
+    return {
+        editor,
+        helper,
+    }
 }

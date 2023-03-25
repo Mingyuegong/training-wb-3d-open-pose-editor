@@ -1,7 +1,4 @@
-import { type BodyEditor } from '../../editor'
 ;(function () {
-    let editor: BodyEditor | undefined
-
     const isTabActive = () => {
         const tab = gradioApp().querySelector<HTMLElement>(
             '#tab_threedopenpose'
@@ -12,10 +9,11 @@ import { type BodyEditor } from '../../editor'
     onUiLoaded(async () => {
         console.log('sd-webui-3d-open-pose-editor: onUiLoaded')
         const { Main } = await import('./main')
-        editor = await Main()
+        window.openpose3dglobal = await Main()
     })
 
     onUiTabChange(() => {
+        const editor = window.openpose3dglobal?.editor
         if (!editor) {
             return
         }
@@ -26,3 +24,5 @@ import { type BodyEditor } from '../../editor'
         }
     })
 })()
+
+export {}

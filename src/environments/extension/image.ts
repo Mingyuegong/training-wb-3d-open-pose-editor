@@ -5,14 +5,6 @@ export function SetScreenShot(id: string, url: string, name: string) {
     updateGradioImage(imageElem, url, name)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-export function onMakeImages() {
-    gradioAppElem
-        .querySelector('#openpose3d_tabs')!
-        .querySelectorAll('button')[1]
-        .click()
-}
-
 export function setBackgroundImage(dataUrl: string | null) {
     const div = gradioAppElem.getElementById('openpose3d_background')
 

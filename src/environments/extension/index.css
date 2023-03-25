@@ -6,14 +6,13 @@
 #openpose3d_canvas {
     display: block;
     width: 100%;
-    height: calc(100vh - 200px);
+    height: calc(100vh - 150px);
     min-height: 400px;
-    aspect-ratio: 1;
 }
 
 #openpose3d_background {
     width: 100%;
-    height: calc(100vh - 200px);
+    height: calc(100vh - 150px);
     min-height: 400px;
     position: absolute;
     z-index: -1;

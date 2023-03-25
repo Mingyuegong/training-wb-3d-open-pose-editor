@@ -32,15 +32,14 @@ def create_ui():
         "posesPath": str(root_path / "src" / "poses" / "data.bin"),
     }
 
-    with gr.Tabs(elem_id="openpose3d_tabs"):
-        gr.HTML(
-            f"""
-            <div id="openpose3d_consts">{html.escape(json.dumps(consts))}</div>
-            """,
-            visible=False,
-        )
-
-        with gr.Tab("Edit Openpose"):
+    gr.HTML(
+        f"""
+        <div id="openpose3d_consts">{html.escape(json.dumps(consts))}</div>
+        """,
+        visible=False,
+    )
+    with gr.Row():
+        with gr.Column(scale=3):
             gr.HTML(
                 """
                 <div id="openpose3d_main">
@@ -50,7 +49,16 @@ def create_ui():
                 </div>
                 """
             )
-        with gr.Tab("Send to ControlNet"):
+            gr.Markdown(
+                "Original: [Online 3D Openpose Editor](https://zhuyu1997.github.io/open-pose-editor/)"
+            )
+        with gr.Column(scale=1):
+            gr.Markdown("**1.** Edit pose of 3D model")
+            gr.Markdown("**2.** Generate ControlNet images")
+            make_image = gr.Button(
+                value="Generate Skeleton/Depth/Normal/Canny Map", variant="primary"
+            )
+            gr.Markdown("**3.** Send to ControlNet")
             with gr.Row():
                 send_t2i = gr.Button(value="Send to txt2img", variant="primary")
                 send_i2i = gr.Button(value="Send to img2img", variant="primary")
@@ -100,10 +108,12 @@ def create_ui():
                         )
                         canny_download = gr.Button(value="Download")
 
-        gr.Markdown(
-            "Original: [Online 3D Openpose Editor](https://zhuyu1997.github.io/open-pose-editor/)"
-        )
-
+    make_image.click(
+        None,
+        make_image,
+        None,
+        _js="window.openpose3d.makeImages",
+    )
     send_cn_inputs = [
         pose_image,
         pose_target,
@@ -153,7 +163,7 @@ def create_ui():
 
 
 def main():
-    js_path = root_path / "javascript" / "openpose.js"
+    js_path = root_path / "javascript" / "index.js"
     css_path = root_path / "style.css"
 
     original_template_response = gr.routes.templates.TemplateResponse

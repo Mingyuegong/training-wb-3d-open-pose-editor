@@ -53,6 +53,9 @@ function sendToControlNet(
 }
 
 window.openpose3d = {
+    makeImages: () => {
+        window.openpose3dglobal?.helper?.MakeImages()
+    },
     sendTxt2img: (
         poseImage: string | null,
         poseTarget: string,
