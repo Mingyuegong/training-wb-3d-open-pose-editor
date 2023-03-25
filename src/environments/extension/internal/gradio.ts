@@ -1,5 +1,26 @@
 export const gradioAppElem = gradioApp()
 
+const waitForElementToBeRemoved = async (parent: Element, selector: string) => {
+    return new Promise((resolve) => {
+        const observer = new MutationObserver(() => {
+            if (parent.querySelector(selector)) {
+                return
+            }
+            observer.disconnect()
+            resolve(undefined)
+        })
+
+        observer.observe(parent, {
+            childList: true,
+            subtree: true,
+        })
+
+        if (!parent.querySelector(selector)) {
+            resolve(undefined)
+        }
+    })
+}
+
 export const updateGradioImage = async (
     element: Element,
     url: string,
@@ -14,6 +35,7 @@ export const updateGradioImage = async (
     element
         .querySelector<HTMLButtonElement>("button[aria-label='Clear']")
         ?.click()
+    await waitForElementToBeRemoved(element, "button[aria-label='Clear']")
     input.value = ''
     input.files = dt.files
     input.dispatchEvent(

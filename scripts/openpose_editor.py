@@ -66,7 +66,11 @@ def create_ui():
                 cn_dropdown_list = [str(i) for i in range(cn_max)]
                 cn_dropdown_list.insert(0, "-")
                 with gr.Column(variant="panel"):
-                    pose_image = gr.Image(label="Pose", elem_id="openpose3d_pose_image")
+                    pose_image = gr.Image(
+                        label="Pose",
+                        elem_id="openpose3d_pose_image",
+                        tool="color-sketch",
+                    )
                     with gr.Row():
                         pose_target = gr.Dropdown(
                             label="ControlNet number",
@@ -76,7 +80,9 @@ def create_ui():
                         pose_download = gr.Button(value="Download")
                 with gr.Column(variant="panel"):
                     depth_image = gr.Image(
-                        label="Depth", elem_id="openpose3d_depth_image"
+                        label="Depth",
+                        elem_id="openpose3d_depth_image",
+                        tool="color-sketch",
                     )
                     with gr.Row():
                         depth_target = gr.Dropdown(
@@ -87,7 +93,9 @@ def create_ui():
                         depth_download = gr.Button(value="Download")
                 with gr.Column(variant="panel"):
                     normal_image = gr.Image(
-                        label="Normal", elem_id="openpose3d_normal_image"
+                        label="Normal",
+                        elem_id="openpose3d_normal_image",
+                        tool="color-sketch",
                     )
                     with gr.Row():
                         normal_target = gr.Dropdown(
@@ -98,7 +106,9 @@ def create_ui():
                         normal_download = gr.Button(value="Download")
                 with gr.Column(variant="panel"):
                     canny_image = gr.Image(
-                        label="Canny", elem_id="openpose3d_canny_image"
+                        label="Canny",
+                        elem_id="openpose3d_canny_image",
+                        tool="color-sketch",
                     )
                     with gr.Row():
                         canny_target = gr.Dropdown(
