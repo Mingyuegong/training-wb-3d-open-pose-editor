@@ -1,5 +1,4 @@
 import { type BodyEditor } from '../../editor'
-
 ;(function () {
     let editor: BodyEditor | undefined
 
