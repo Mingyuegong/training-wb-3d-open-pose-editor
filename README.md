@@ -15,13 +15,6 @@ An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable
 5. Click the "Install" button of 3D Openpose Editor
 6. Open the "Installed" tab and click the "Apply and restart UI" button
 
-# Usage
-
-1. Manipulate the 3D models and camera with the mouse to set the pose.
-2. Click the "Generate Skeleton/Depth/Normal/Canny Map" from the right controller. Then, move to the "Send to ControlNet" tab.
-3. If Multi-ControlNet is enabled, set "ControlNet number".
-4. Click the "Send to txt2img" or "Send to img2img" button to send the images to ControlNet.
-
 # Feature
 
 - **Pose Editing**: Edit the pose of the 3D model by selecting a joint and rotating it with the mouse. 
