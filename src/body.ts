@@ -656,15 +656,31 @@ const pickableObjectNames: string[] = [
     'right_ankle_target',
 ]
 
-export function IsPickable(name: string) {
+export function IsPickable(name: string, isFreeMode = false) {
+    if (isFreeMode && coco_body_keypoints.includes(name)) return true
     if (pickableObjectNames.includes(name)) return true
     if (name.startsWith(handModelInfo.bonePrefix)) return true
     if (name.startsWith(footModelInfo.bonePrefix)) return true
-
     return false
 }
 
-export function IsTranslate(name: string) {
+export function IsTranslate(name: string, isFreeMode = false) {
+    if (isFreeMode)
+        return (
+            [
+                'right_shoulder_inner',
+                'left_shoulder_inner',
+                'right_hip_inner',
+                'left_hip_inner',
+                'neck',
+            ].includes(name) == false
+        )
+
+    if (name.endsWith('_target')) return true
+    return false
+}
+
+export function IsTarget(name: string) {
     if (name.endsWith('_target')) return true
     return false
 }
@@ -1170,7 +1186,7 @@ export class BodyControlor {
 
             this.UpdateLink(name)
         }
-        this.ResetAllTargetsPosition()
+        this.Update()
     }
     SetPose(rawData: [number, number, number][]) {
         this.ResetPose()
@@ -1221,10 +1237,10 @@ export class BodyControlor {
                 name,
                 this.getDirectionVectorByParentOf(name, data[from], data[to])
             )
-        this.ResetAllTargetsPosition()
+        this.Update()
     }
 
-    UpdateBones(thickness = BoneThickness) {
+    UpdateBones(thickness = this.BoneThickness) {
         this.part['torso'].traverse((o) => {
             if (o.name in this.part) {
                 const name = o.name as ControlPartName
@@ -1334,6 +1350,12 @@ export class BodyControlor {
         this.ResetTargetPosition('right_wrist', 'right_wrist_target')
         this.ResetTargetPosition('left_ankle', 'left_ankle_target')
         this.ResetTargetPosition('right_ankle', 'right_ankle_target')
+    }
+
+    Update() {
+        this.ResetAllTargetsPosition()
+        this.UpdateBones()
+        this.part['torso'].updateMatrixWorld(true)
     }
 }
 

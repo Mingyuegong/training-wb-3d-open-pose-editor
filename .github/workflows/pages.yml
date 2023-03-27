@@ -11,7 +11,7 @@ on:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -48,6 +48,13 @@ jobs:
         with:
           # Upload entire repository
           path: './dist'
+      - run: pnpm build-singlefile
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: html.zip
+
   # Deployment job
   deploy:
     environment:

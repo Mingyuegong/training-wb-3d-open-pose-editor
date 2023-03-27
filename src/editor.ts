@@ -30,6 +30,7 @@ import {
     IsNeedSaveObject,
     IsPickable,
     IsSkeleton,
+    IsTarget,
     IsTranslate,
 } from './body'
 import { options } from './config'
@@ -63,6 +64,7 @@ interface BodyData {
 interface CameraData {
     position: ReturnType<THREE.Vector3['toArray']>
     rotation: ReturnType<THREE.Euler['toArray']>
+    target: ReturnType<THREE.Vector3['toArray']>
     near: number
     far: number
     zoom: number
@@ -226,16 +228,37 @@ export class BodyEditor {
     CreateTransformCommand(obj: Object3D, _old: TransformValue): Command {
         const oldValue = _old
         const newValue = GetTransformValue(obj)
+        const controlor = new BodyControlor(this.getBodyByPart(obj)!)
         return {
-            execute() {
+            execute: () => {
                 obj.position.copy(newValue.position)
                 obj.rotation.copy(newValue.rotation)
                 obj.scale.copy(newValue.scale)
+                controlor.Update()
             },
-            undo() {
+            undo: () => {
                 obj.position.copy(oldValue.position)
                 obj.rotation.copy(oldValue.rotation)
                 obj.scale.copy(oldValue.scale)
+                controlor.Update()
+            },
+        }
+    }
+
+    CreateAllTransformCommand(obj: Object3D, _old: BodyData): Command {
+        const oldValue = _old
+        const body = this.getBodyByPart(obj)!
+        const controlor = new BodyControlor(body)
+        const newValue = this.GetBodyData(body)
+
+        return {
+            execute: () => {
+                this.RestoreBody(body, newValue)
+                controlor.Update()
+            },
+            undo: () => {
+                this.RestoreBody(body, oldValue)
+                controlor.Update()
             },
         }
     }
@@ -309,7 +332,13 @@ export class BodyEditor {
             rotation: new THREE.Euler(),
             position: new THREE.Vector3(),
         }
+        let oldBodyData: BodyData = {} as BodyData
         this.transformControl.addEventListener('change', () => {
+            const body = this.getSelectedBody()
+
+            if (body) {
+                new BodyControlor(body).UpdateBones()
+            }
             // console.log('change')
             // this.renderer.render(this.scene, this.camera)
         })
@@ -321,19 +350,27 @@ export class BodyEditor {
 
         this.transformControl.addEventListener('mouseDown', () => {
             const part = this.getSelectedPart()
-            if (part) oldTransformValue = GetTransformValue(part)
+            if (part) {
+                oldTransformValue = GetTransformValue(part)
+                oldBodyData = this.GetBodyData(this.getBodyByPart(part)!)
+            }
             this.orbitControls.enabled = false
         })
         this.transformControl.addEventListener('mouseUp', () => {
             const part = this.getSelectedPart()
             if (part) {
-                this.pushCommand(
-                    this.CreateTransformCommand(part, oldTransformValue)
-                )
+                if (IsTarget(part.name))
+                    this.pushCommand(
+                        this.CreateAllTransformCommand(part, oldBodyData)
+                    )
+                else
+                    this.pushCommand(
+                        this.CreateTransformCommand(part, oldTransformValue)
+                    )
             }
             this.orbitControls.enabled = true
 
-            this.saveSelectedBodyControlor?.ResetAllTargetsPosition()
+            this.saveSelectedBodyControlor?.Update()
         })
     }
 
@@ -530,14 +567,27 @@ export class BodyEditor {
             }
 
             if (this.MoveMode) {
-                obj = this.getBodyByPart(obj)
+                const isOk = IsPickable(name, this.FreeMode)
+
+                if (!isOk) {
+                    obj =
+                        this.getAncestors(obj).find((o) =>
+                            IsPickable(o.name, this.FreeMode)
+                        ) ?? null
+                }
+
+                if (obj) {
+                    if (IsTranslate(obj.name, this.FreeMode) === false)
+                        obj = this.getBodyByPart(obj)
+                }
 
                 if (obj) {
                     console.log(obj.name)
                     this.transformControl.setMode('translate')
                     this.transformControl.setSpace('world')
                     this.transformControl.attach(obj)
-                    this.triggerSelectEvent(obj)
+                    const body = this.getBodyByPart(obj)
+                    if (body) this.triggerSelectEvent(body)
                 }
             } else {
                 const isOk = IsPickable(name)
@@ -971,7 +1021,7 @@ export class BodyEditor {
 
         const name = this.getSelectedPart()?.name
 
-        if (name && IsTranslate(name)) {
+        if (name && IsTranslate(name, this.FreeMode)) {
             IsTranslateMode = true
         } else if (move) {
             const obj = this.getSelectedBody()
@@ -986,6 +1036,9 @@ export class BodyEditor {
             this.transformControl.setSpace('local')
         }
     }
+
+    FreeMode = false
+
     get Width() {
         return this.renderer.domElement.clientWidth
     }
@@ -1122,6 +1175,7 @@ export class BodyEditor {
         const result = {
             position: this.camera.position.toArray(),
             rotation: this.camera.rotation.toArray(),
+            target: this.orbitControls.target.toArray(),
             near: this.camera.near,
             far: this.camera.far,
             zoom: this.camera.zoom,
@@ -1180,22 +1234,23 @@ export class BodyEditor {
             .forEach((o) => o.removeFromParent())
     }
 
+    RestoreBody(body: Object3D, data: BodyData) {
+        body?.traverse((o) => {
+            if (o.name && o.name in data.child) {
+                const child = data.child[o.name]
+                o.position.fromArray(child.position)
+                o.rotation.fromArray(child.rotation as any)
+                o.scale.fromArray(child.scale)
+            }
+        })
+        body.position.fromArray(data.position)
+        body.rotation.fromArray(data.rotation as any)
+        body.scale.fromArray(data.scale)
+    }
     CreateBodiesFromData(bodies: BodyData[]) {
         return bodies.map((data) => {
             const body = CloneBody()!
-
-            body?.traverse((o) => {
-                if (o.name && o.name in data.child) {
-                    const child = data.child[o.name]
-                    o.position.fromArray(child.position)
-                    o.rotation.fromArray(child.rotation as any)
-                    o.scale.fromArray(child.scale)
-                }
-            })
-            body.position.fromArray(data.position)
-            body.rotation.fromArray(data.rotation as any)
-            body.scale.fromArray(data.scale)
-
+            this.RestoreBody(body, data)
             return body
         })
     }
@@ -1207,6 +1262,7 @@ export class BodyEditor {
         this.camera.zoom = data.zoom
         this.camera.updateProjectionMatrix()
 
+        if (data.target) this.orbitControls.target.fromArray(data.target)
         if (updateOrbitControl) this.orbitControls.update() // fix position change
     }
     RestoreScene(rawData: string) {
@@ -1318,16 +1374,18 @@ export class BodyEditor {
         const body = await this.GetBodyToSetPose()
 
         if (!body) return
-        // if not detach it, skeleten will shake
-        this.DetachTransfromControl()
+
+        const old: BodyData = this.GetBodyData(body)
         new BodyControlor(body).SetPose(poseData)
+        this.pushCommand(this.CreateAllTransformCommand(body, old))
     }
     async SetBlazePose(positions: [number, number, number][]) {
         const body = await this.GetBodyToSetPose()
         if (!body) return
 
-        this.DetachTransfromControl()
+        const old: BodyData = this.GetBodyData(body)
         new BodyControlor(body).SetBlazePose(positions)
+        this.pushCommand(this.CreateAllTransformCommand(body, old))
     }
 
     DetachTransfromControl() {

@@ -1,4 +1,4 @@
-# 3D Openpose Editor (sd-webui-3d-open-pose-editor)
+# 3D Openpose Editor (sd-webui-3d-open-pose-editor) [[中文版](README-zh.md)] [[日本語版](README-ja.md)]
 
 An extension of [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) to use [Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor).
 
