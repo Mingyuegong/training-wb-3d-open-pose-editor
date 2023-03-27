@@ -9,6 +9,8 @@ black = "*"
 isort = "*"
 mypy = "*"
 gradio = "==3.16.2"
+types-requests = "*"
+requests = "*"
 
 [dev-packages]
 

@@ -5,8 +5,9 @@ const footFBXFileUrl =
 const PosesLibraryUrl =
     '/file=extensions/sd-webui-3d-open-pose-editor/src/poses/data.bin'
 
-export default {
+const files: Record<string, string> = {
     'models/hand.fbx': handFBXFileUrl,
     'models/foot.fbx': footFBXFileUrl,
     'src/poses/data.bin': PosesLibraryUrl,
 }
+export default files

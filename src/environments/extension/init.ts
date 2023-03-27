@@ -6,9 +6,7 @@ import { gradioAppElem, updateGradioImage } from './internal/gradio'
 const consts = JSON.parse(
     gradioAppElem.querySelector('#openpose3d_consts')!.textContent!
 )
-assets['models/hand.fbx'] = '/file=' + consts.handFbxPath
-assets['models/foot.fbx'] = '/file=' + consts.footFbxPath
-assets['src/poses/data.bin'] = '/file=' + consts.posesPath
+Object.assign(assets, consts['assets'])
 
 options['Width'] = 512
 options['Height'] = 512

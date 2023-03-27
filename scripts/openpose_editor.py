@@ -26,12 +26,28 @@ def create_ui():
     except (ImportError, AttributeError):
         cn_max = 0
 
-    consts = {
-        "handFbxPath": str(root_path / "models" / "hand.fbx"),
-        "footFbxPath": str(root_path / "models" / "foot.fbx"),
-        "posesPath": str(root_path / "src" / "poses" / "data.bin"),
+    assets = {
+        "models/hand.fbx": "/file=" + str(root_path / "models" / "hand.fbx"),
+        "models/foot.fbx": "/file=" + str(root_path / "models" / "foot.fbx"),
+        "src/poses/data.bin": "/file=" + str(root_path / "src" / "poses" / "data.bin"),
     }
 
+    MEDIAPIPE_POSE_VERSION = "0.5.1675469404"
+    mediapipe_dir = root_path / "downloads" / "pose" / MEDIAPIPE_POSE_VERSION
+    for file_name in [
+        "pose_landmark_full.tflite",
+        "pose_web.binarypb",
+        "pose_solution_packed_assets.data",
+        "pose_solution_simd_wasm_bin.wasm",
+        "pose_solution_packed_assets_loader.js",
+        "pose_solution_simd_wasm_bin.js",
+    ]:
+        file_path = mediapipe_dir / file_name
+        if not file_path.exists():
+            continue
+        assets[file_name] = "/file=" + str(file_path.absolute())
+
+    consts = {"assets": assets}
     gr.HTML(
         f"""
         <div id="openpose3d_consts">{html.escape(json.dumps(consts))}</div>
