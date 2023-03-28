@@ -42,7 +42,7 @@
 ### その他の機能:
 - **移動モードに切り替え**: Xキーを押すと、移動モードに切り替わり、身体全体を移動できます。
 - **ボディの削除**: Dキーを押して、身体全体を削除できます。
-# 問い合わせ
-Email: 891085309@qq.com
 
-[Tencent QQ Group](https://jq.qq.com/?_wv=1027&k=N6j4nigd)：272950545
+# 謝辞
+
+* [ZhUyU1997 - Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor): オリジナル版

@@ -47,7 +47,6 @@
 - **切换到移动模式**: 按 X 键切换到移动模式，允许您移动整个身体。
 - **删除身体**: 按 D 键删除整个身体。
 
-# 联系方式
-邮箱：891085309@qq.com
+# 鸣谢
 
-[QQ群](https://jq.qq.com/?_wv=1027&k=N6j4nigd)：272950545
+* [ZhUyU1997 - Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor): 原始版本
