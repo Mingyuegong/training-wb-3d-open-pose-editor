@@ -3,6 +3,15 @@ import { resolve } from 'path'
 export default function () {
     return {
         name: 'extension',
+        generateBundle(options, bundle) {
+            for (const key in bundle) {
+                const b = bundle[key]
+                if (b.type !== 'chunk') {
+                    continue
+                }
+                b.fileName = b.fileName.replace(/\?[0-9a-f]+$/, '')
+            }
+        },
         config() {
             return {
                 resolve: {
@@ -30,7 +39,7 @@ export default function () {
                     rollupOptions: {
                         output: {
                             entryFileNames: 'javascript/[name].js',
-                            chunkFileNames: 'javascript/lazy/[name].js',
+                            chunkFileNames: 'javascript/lazy/[name].js?[hash]',
                             assetFileNames(assetInfo) {
                                 if (assetInfo?.name?.match(/\.css/i))
                                     return 'style.css'

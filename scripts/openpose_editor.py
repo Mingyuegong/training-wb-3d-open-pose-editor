@@ -1,6 +1,8 @@
 import html
 import json
+import os.path
 import pathlib
+import typing
 
 import gradio as gr
 
@@ -10,6 +12,12 @@ except NameError:
     import inspect
 
     root_path = pathlib.Path(inspect.getfile(lambda: None)).resolve().parents[1]
+
+
+def get_asset_url(file_path: pathlib.Path) -> typing.Optional[str]:
+    if not file_path.exists():
+        return None
+    return f"/file={file_path.absolute()}?{os.path.getmtime(file_path)}"
 
 
 def on_ui_tabs():
@@ -27,9 +35,9 @@ def create_ui():
         cn_max = 0
 
     assets = {
-        "models/hand.fbx": "/file=" + str(root_path / "models" / "hand.fbx"),
-        "models/foot.fbx": "/file=" + str(root_path / "models" / "foot.fbx"),
-        "src/poses/data.bin": "/file=" + str(root_path / "src" / "poses" / "data.bin"),
+        "models/hand.fbx": get_asset_url(root_path / "models" / "hand.fbx"),
+        "models/foot.fbx": get_asset_url(root_path / "models" / "foot.fbx"),
+        "src/poses/data.bin": get_asset_url(root_path / "src" / "poses" / "data.bin"),
     }
 
     MEDIAPIPE_POSE_VERSION = "0.5.1675469404"
@@ -45,7 +53,7 @@ def create_ui():
         file_path = mediapipe_dir / file_name
         if not file_path.exists():
             continue
-        assets[file_name] = "/file=" + str(file_path.absolute())
+        assets[file_name] = get_asset_url(file_path.absolute())
 
     consts = {"assets": assets}
     gr.HTML(
