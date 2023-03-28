@@ -1,7 +1,20 @@
-# Online 3D Openpose Editor [[English](README.md)] [[中文版](README-zh.md)]
-# [エディターを表示するにはここをクリックしてください](https://zhuyu1997.github.io/open-pose-editor/)
+# 3D Openpose Editor (sd-webui-3d-open-pose-editor) [[English](README.md)] [[中文版](README-zh.md)]
+
+[Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor)を[stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)で使うための拡張機能です。
+
 # プレビュー
-https://user-images.githubusercontent.com/18410894/224073965-c782a05f-0a20-41cf-863d-8de490021ed7.mp4
+
+![Preview](https://user-images.githubusercontent.com/42905588/227674599-21610711-7276-413c-aa36-cc5108e74dc3.png)
+
+# インストール
+
+1. WebUIの「Extension」タブを開きます
+2. 「Available」タブを開きます
+3. WebUIが古い場合は「Extension index URL」を `https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui-extensions/master/index.json` に変更してください
+4. 「Load from:」ボタンをクリックします
+5. 3D Openpose Editorの「Install」ボタンをクリックします
+6. 「Installed」タブを開き、「Apply and restart UI」ボタンをクリックします
+
 # 特徴
 
 - **ポーズの編集**: マウスで関節を選択し、回転させることで、3Dモデルのポーズを編集できます。

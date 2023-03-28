@@ -1,7 +1,20 @@
-# 在线 3D Openpose 编辑器 [[English](README.md)] [[日本語版](README-ja.md)]
-# [点击此处进入编辑器](https://zhuyu1997.github.io/open-pose-editor/)
+# 3D Openpose Editor (sd-webui-3d-open-pose-editor) [[English](README.md)] [[日本語版](README-ja.md)]
+
+这是一个用于在[stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)中使用[Online 3D Openpose Editor](https://github.com/ZhUyU1997/open-pose-editor)的扩展功能。
+
 # 预览
-https://user-images.githubusercontent.com/18410894/224073965-c782a05f-0a20-41cf-863d-8de490021ed7.mp4
+
+![Preview](https://user-images.githubusercontent.com/42905588/227674599-21610711-7276-413c-aa36-cc5108e74dc3.png)
+
+# 安装
+
+1. 打开Web UI的 "Extension" 选项卡
+2. 打开 "Available" 选项卡
+3. 如果您的Web UI版本过旧，请将 "Extension index URL" 更改为 `https://raw.githubusercontent.com/AUTOMATIC1111/stable-diffusion-webui-extensions/master/index.json`
+4. 点击 "Load from:" 按钮
+5. 点击3D Openpose Editor的 "Install" 按钮
+6. 打开 "Installed" 选项卡，点击 "Apply and restart UI" 按钮
+
 # 特点
 
 - **姿势编辑**: 通过选择关节并使用鼠标旋转编辑 3D 模型的姿势。
