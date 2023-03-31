@@ -33,3 +33,10 @@
 #threedopenpose_right_column .output-html {
     display: block;
 }
+
+#openpose3d_iframe {
+    display: block;
+    width: 100%;
+    height: calc(100vh - 150px);
+    min-height: 400px;
+}

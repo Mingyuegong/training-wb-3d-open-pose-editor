@@ -45,7 +45,8 @@ export default function () {
                                     return 'style.css'
                                 return 'assets/[name]-[hash][extname]'
                             },
-                            sourcemap: 'hidden',
+                            // build error
+                            // sourcemap: 'hidden',
                         },
                     },
                 },

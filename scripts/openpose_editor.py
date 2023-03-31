@@ -68,7 +68,7 @@ def create_ui():
                 """
                 <div id="openpose3d_main">
                     <div id="openpose3d_background"></div>
-                    <canvas id="openpose3d_canvas" width="512" height="512"></canvas>
+                    <iframe id="openpose3d_iframe" src="http://localhost:5173/open-pose-editor/"></iframe>
                     <div id="openpose3d_gui"></div>
                 </div>
                 """
