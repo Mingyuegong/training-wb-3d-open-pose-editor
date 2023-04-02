@@ -119,7 +119,7 @@ export class Helper {
     }
     Feedback() {
         window.open(
-            'https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues/new'
+            'https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues/new/choose'
         )
     }
 }

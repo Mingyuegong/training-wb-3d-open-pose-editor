@@ -8,7 +8,7 @@ export function Oops(error: any) {
         title: i18n.t('Oops...') ?? '',
         description: text,
         children: (
-            <a href="https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues/new">
+            <a href="https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues/new/choose">
                 {i18n.t(
                     'If the problem persists, please click here to ask a question.'
                 )}
