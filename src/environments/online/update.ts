@@ -4,14 +4,16 @@
 import { registerSW } from 'virtual:pwa-register'
 // #v-endif
 
-import Swal from 'sweetalert2'
+import { ShowDialog } from '../../components/Dialog'
 import i18n from '../../i18n'
 
 async function PWAPopup(update: (reloadPage?: boolean) => Promise<void>) {
-    const result = await Swal.fire(
-        i18n.t('Updates are available, please confirm!!')
-    )
-    if (result.isConfirmed) {
+    const result = await ShowDialog({
+        title: i18n.t('Updates are available, please confirm!!') ?? '',
+        button: i18n.t('Update') ?? '',
+    })
+
+    if (result === 'action') {
         update(true)
     }
 }

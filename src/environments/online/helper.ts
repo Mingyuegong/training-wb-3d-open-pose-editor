@@ -1,67 +1,47 @@
 import { getImage } from '../../utils/image'
 import { uploadImage } from '../../utils/transfer'
-import { getCurrentTime } from '../../utils/time'
-import { setBackgroundImage, SetScreenShot } from './image'
 import { DetectPosefromImage } from '../../utils/detect'
 
-import { GetRandomPose, LoadPosesLibrary } from '../../body'
+import { BodyControlor, GetRandomPose, LoadPosesLibrary } from '../../body'
 
-import Swal from 'sweetalert2'
+import { GetLoading } from '../../components/Loading'
 import { BodyEditor } from '../../editor'
 import i18n from '../../i18n'
-import { Oops } from '../../components'
+import { Oops } from '../../components/Oops'
 import assets from '../../assets'
-import * as dat from 'dat.gui'
+import { ShowToast } from '../../components/Toast'
 
 export class Helper {
     editor: BodyEditor
-    gui: dat.GUI
-    constructor(gui: dat.GUI, editor: BodyEditor) {
+    constructor(editor: BodyEditor) {
         this.editor = editor
-        this.gui = gui
     }
 
-    MakeImages() {
-        const image = this.editor.MakeImages()
-
-        for (const [name, imgData] of Object.entries(image)) {
-            const fileName = name + '_' + getCurrentTime()
-            SetScreenShot(name, imgData, fileName)
-        }
-    }
-    async DetectFromImage() {
+    async DetectFromImage(onChangeBackground: (url: string) => void) {
         const body = await this.editor.GetBodyToSetPose()
         if (!body) {
-            await Swal.fire(i18n.t('Please select a skeleton!!'))
+            ShowToast({ title: i18n.t('Please select a skeleton!!') })
             return
         }
 
-        try {
-            let loading = true
+        const loading = GetLoading(500)
 
+        try {
             const dataUrl = await uploadImage()
 
             if (!dataUrl) return
 
             const image = await getImage(dataUrl)
-            setBackgroundImage(dataUrl)
+            onChangeBackground(dataUrl)
 
-            setTimeout(() => {
-                if (loading)
-                    Swal.fire({
-                        title: i18n.t('Downloading MediaPipe Pose Model') ?? '',
-                        didOpen: () => {
-                            Swal.showLoading()
-                        },
-                    })
-            }, 500)
-
+            loading.show({ title: i18n.t('Downloading MediaPipe Pose Model') })
             const result = await DetectPosefromImage(image)
-            loading = false
-            Swal.hideLoading()
-            Swal.close()
+            loading.hide()
 
             if (result) {
+                if (!result.poseWorldLandmarks)
+                    throw new Error(JSON.stringify(result))
+
                 const positions: [number, number, number][] =
                     result.poseWorldLandmarks.map(({ x, y, z }) => [
                         x * 100,
@@ -79,24 +59,38 @@ export class Helper {
                 return
             }
         } catch (error) {
-            Swal.hideLoading()
-            Swal.close()
+            loading.hide()
 
             Oops(error)
             console.error(error)
             return null
         }
     }
-    async setBackground() {
-        const dataUrl = await uploadImage()
-        setBackgroundImage(dataUrl)
+
+    async CopyKeypointToClipboard() {
+        const body = await this.editor.GetBodyToSetPose()
+        if (!body) {
+            ShowToast({ title: i18n.t('Please select a skeleton!!') })
+            return
+        }
+        try {
+            const data = new BodyControlor(body).Get18keyPointsData()
+            await navigator.clipboard.writeText(JSON.stringify(data, null, 4))
+            ShowToast({ title: i18n.t('Copied to Clipboard') })
+        } catch (error) {
+            Oops(error)
+            console.error(error)
+            return null
+        }
     }
     async SetRandomPose() {
         const body = await this.editor.GetBodyToSetPose()
         if (!body) {
-            await Swal.fire(i18n.t('Please select a skeleton!!'))
+            ShowToast({ title: i18n.t('Please select a skeleton!!') })
             return
         }
+
+        const loading = GetLoading(500)
 
         try {
             let poseData = GetRandomPose()
@@ -105,22 +99,10 @@ export class Helper {
                 return
             }
 
-            let loading = true
-
-            setTimeout(() => {
-                if (loading)
-                    Swal.fire({
-                        title: i18n.t('Downloading Poses Library') ?? '',
-                        didOpen: () => {
-                            Swal.showLoading()
-                        },
-                    })
-            }, 500)
+            loading.show({ title: i18n.t('Downloading Poses Library') })
 
             await LoadPosesLibrary(assets['src/poses/data.bin'])
-            loading = false
-            Swal.hideLoading()
-            Swal.close()
+            loading.hide()
 
             poseData = GetRandomPose()
             if (poseData) {
@@ -128,8 +110,7 @@ export class Helper {
                 return
             }
         } catch (error) {
-            Swal.hideLoading()
-            Swal.close()
+            loading.hide()
 
             Oops(error)
             console.error(error)
