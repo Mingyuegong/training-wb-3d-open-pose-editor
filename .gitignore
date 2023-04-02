@@ -185,8 +185,5 @@ cython_debug/
 #.idea/
 
 # Custom
-/javascript/lazy/*.map
-/javascript/*.map
 /stats.html
-package-lock.json
-Pipfile.lock
+.pnpm-store/
