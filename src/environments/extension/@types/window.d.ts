@@ -1,6 +1,5 @@
 interface Window {
     openpose3d?: {
-        makeImages: () => void
         sendTxt2img: (
             pose_image: string | null,
             pose_target: string,
@@ -22,9 +21,5 @@ interface Window {
             canny_target: string
         ) => void
         downloadImage: (image: string | null, name: string) => void
-    }
-    openpose3dglobal?: {
-        editor: BodyEditor
-        helper: Helper
     }
 }

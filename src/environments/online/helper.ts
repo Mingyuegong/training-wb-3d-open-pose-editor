@@ -118,6 +118,8 @@ export class Helper {
         }
     }
     Feedback() {
-        window.open('https://github.com/ZhUyU1997/open-pose-editor/issues/new')
+        window.open(
+            'https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues/new'
+        )
     }
 }

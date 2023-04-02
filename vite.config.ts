@@ -55,7 +55,7 @@ const config: UserConfigFn = ({ command, mode, ssrBuild }) => {
             mode === 'online' ? pwa : null,
             visualizer(),
             ConditionalCompile(),
-            mode === 'extension' ? ExtensionPlugin() : null,
+            mode.startsWith('extension') ? ExtensionPlugin() : null,
         ],
     }
 }

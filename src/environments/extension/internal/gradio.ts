@@ -1,9 +1,11 @@
-export const gradioAppElem = gradioApp()
-
-const waitForElementToBeRemoved = async (parent: Element, selector: string) => {
+const waitForElement = async (
+    parent: Element,
+    selector: string,
+    exist: boolean
+) => {
     return new Promise((resolve) => {
         const observer = new MutationObserver(() => {
-            if (parent.querySelector(selector)) {
+            if (!!parent.querySelector(selector) != exist) {
                 return
             }
             observer.disconnect()
@@ -15,11 +17,24 @@ const waitForElementToBeRemoved = async (parent: Element, selector: string) => {
             subtree: true,
         })
 
-        if (!parent.querySelector(selector)) {
+        if (!!parent.querySelector(selector) == exist) {
             resolve(undefined)
         }
     })
 }
+
+const timeout = (ms: number) => {
+    return new Promise(function (resolve, reject) {
+        setTimeout(() => reject('Timeout'), ms)
+    })
+}
+
+export const waitForElementToBeInDocument = (
+    parent: Element,
+    selector: string
+) => Promise.race([waitForElement(parent, selector, true), timeout(10000)])
+export const waitForElementToBeRemoved = (parent: Element, selector: string) =>
+    Promise.race([waitForElement(parent, selector, false), timeout(10000)])
 
 export const updateGradioImage = async (
     element: Element,
@@ -44,4 +59,20 @@ export const updateGradioImage = async (
             composed: true,
         })
     )
+    await waitForElementToBeInDocument(element, "button[aria-label='Clear']")
+}
+
+export const switchGradioTab = (element: Element, index: number) => {
+    element.querySelectorAll('button')[index].click()
+}
+
+export const openGradioAccordion = (element: Element) => {
+    const labelElem = element.querySelector<HTMLElement>(':scope > .label-wrap')
+    if (!labelElem) {
+        return
+    }
+    if (labelElem.classList.contains('open')) {
+        return
+    }
+    labelElem.click()
 }

@@ -3,6 +3,7 @@ import json
 import os.path
 import pathlib
 import typing
+import urllib.parse
 
 import gradio as gr
 
@@ -14,26 +15,18 @@ except NameError:
     root_path = pathlib.Path(inspect.getfile(lambda: None)).resolve().parents[1]
 
 
-def get_asset_url(file_path: pathlib.Path) -> typing.Optional[str]:
-    if not file_path.exists():
-        return None
-    return f"/file={file_path.absolute()}?{os.path.getmtime(file_path)}"
+def get_asset_url(
+    file_path: pathlib.Path, append: typing.Optional[dict[str, str]] = None
+) -> str:
+    if append is None:
+        append = {"v": str(os.path.getmtime(file_path))}
+    else:
+        append = append.copy()
+        append["v"] = str(os.path.getmtime(file_path))
+    return f"/file={file_path.absolute()}?{urllib.parse.urlencode(append)}"
 
 
-def on_ui_tabs():
-    with gr.Blocks(analytics_enabled=False) as blocks:
-        create_ui()
-    return [(blocks, "3D Openpose", "threedopenpose")]
-
-
-def create_ui():
-    try:
-        from modules.shared import opts
-
-        cn_max: int = opts.control_net_max_models_num
-    except (ImportError, AttributeError):
-        cn_max = 0
-
+def write_config_file() -> pathlib.Path:
     assets = {
         "models/hand.fbx": get_asset_url(root_path / "models" / "hand.fbx"),
         "models/foot.fbx": get_asset_url(root_path / "models" / "foot.fbx"),
@@ -56,33 +49,47 @@ def create_ui():
         assets[file_name] = get_asset_url(file_path.absolute())
 
     consts = {"assets": assets}
-    gr.HTML(
-        f"""
-        <div id="openpose3d_consts">{html.escape(json.dumps(consts))}</div>
-        """,
-        visible=False,
-    )
-    with gr.Row():
-        with gr.Column(scale=3):
+
+    config_dir = root_path / "downloads"
+    config_dir.mkdir(mode=0o755, parents=True, exist_ok=True)
+    config_path = config_dir / "config.json"
+    config_path.write_text(json.dumps(consts))
+    return config_path
+
+
+def on_ui_tabs():
+    with gr.Blocks(analytics_enabled=False) as blocks:
+        create_ui()
+    return [(blocks, "3D Openpose", "threedopenpose")]
+
+
+def create_ui():
+    try:
+        from modules.shared import opts
+
+        cn_max: int = opts.control_net_max_models_num
+        use_online: bool = opts.openpose3d_use_online_version
+    except (ImportError, AttributeError):
+        cn_max = 0
+        use_online = False
+
+    if use_online:
+        html_url = "https://zhuyu1997.github.io/open-pose-editor/"
+    else:
+        config = {"config": get_asset_url(write_config_file()) or ""}
+        html_url = get_asset_url(root_path / "pages" / "index.html", config)
+
+    with gr.Tabs(elem_id="openpose3d_main"):
+        with gr.Tab(label="Edit Openpose"):
             gr.HTML(
-                """
-                <div id="openpose3d_main">
-                    <div id="openpose3d_background"></div>
-                    <canvas id="openpose3d_canvas" width="512" height="512"></canvas>
-                    <div id="openpose3d_gui"></div>
-                </div>
+                f"""
+                <iframe id="openpose3d_iframe" src="{html.escape(html_url)}"></iframe>
                 """
             )
             gr.Markdown(
                 "Original: [Online 3D Openpose Editor](https://zhuyu1997.github.io/open-pose-editor/)"
             )
-        with gr.Column(scale=1):
-            gr.Markdown("**1.** Edit pose of 3D model")
-            gr.Markdown("**2.** Generate ControlNet images")
-            make_image = gr.Button(
-                value="Generate Skeleton/Depth/Normal/Canny Map", variant="primary"
-            )
-            gr.Markdown("**3.** Send to ControlNet")
+        with gr.Tab(label="Send to ControlNet"):
             with gr.Row():
                 send_t2i = gr.Button(value="Send to txt2img", variant="primary")
                 send_i2i = gr.Button(value="Send to img2img", variant="primary")
@@ -93,11 +100,10 @@ def create_ui():
                     pose_image = gr.Image(
                         label="Pose",
                         elem_id="openpose3d_pose_image",
-                        tool="color-sketch",
                     )
                     with gr.Row():
                         pose_target = gr.Dropdown(
-                            label="ControlNet number",
+                            label="Control Model number",
                             choices=cn_dropdown_list,
                             value="0" if cn_max >= 1 else "-",
                         )
@@ -106,11 +112,10 @@ def create_ui():
                     depth_image = gr.Image(
                         label="Depth",
                         elem_id="openpose3d_depth_image",
-                        tool="color-sketch",
                     )
                     with gr.Row():
                         depth_target = gr.Dropdown(
-                            label="ControlNet number",
+                            label="Control Model number",
                             choices=cn_dropdown_list,
                             value="1" if cn_max >= 2 else "-",
                         )
@@ -119,11 +124,10 @@ def create_ui():
                     normal_image = gr.Image(
                         label="Normal",
                         elem_id="openpose3d_normal_image",
-                        tool="color-sketch",
                     )
                     with gr.Row():
                         normal_target = gr.Dropdown(
-                            label="ControlNet number",
+                            label="Control Model number",
                             choices=cn_dropdown_list,
                             value="2" if cn_max >= 3 else "-",
                         )
@@ -132,22 +136,15 @@ def create_ui():
                     canny_image = gr.Image(
                         label="Canny",
                         elem_id="openpose3d_canny_image",
-                        tool="color-sketch",
                     )
                     with gr.Row():
                         canny_target = gr.Dropdown(
-                            label="ControlNet number",
+                            label="Control Model number",
                             choices=cn_dropdown_list,
                             value="3" if cn_max >= 4 else "-",
                         )
                         canny_download = gr.Button(value="Download")
 
-    make_image.click(
-        None,
-        make_image,
-        None,
-        _js="window.openpose3d.makeImages",
-    )
     send_cn_inputs = [
         pose_image,
         pose_target,
@@ -174,25 +171,36 @@ def create_ui():
         None,
         pose_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'pose.png')",
+        _js="(v) => window.openpose3d.downloadImage(v, 'pose')",
     )
     depth_download.click(
         None,
         depth_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'depth.png')",
+        _js="(v) => window.openpose3d.downloadImage(v, 'depth')",
     )
     normal_download.click(
         None,
         normal_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'normal.png')",
+        _js="(v) => window.openpose3d.downloadImage(v, 'normal')",
     )
     canny_download.click(
         None,
         canny_image,
         None,
-        _js="(v) => window.openpose3d.downloadImage(v, 'canny.png')",
+        _js="(v) => window.openpose3d.downloadImage(v, 'canny')",
+    )
+
+
+def on_ui_settings():
+    from modules.shared import OptionInfo, opts
+
+    section = ("openpose3d", "3D Openpose Editor")
+
+    opts.add_option(
+        "openpose3d_use_online_version",
+        OptionInfo(False, "Use online version", section=section),
     )
 
 
@@ -223,22 +231,25 @@ def main():
                 }
             })
         }
+        let onTabChangedCallback
         function gradioApp() {
             const elems = document.getElementsByTagName('gradio-app')
             const gradioShadowRoot = elems.length == 0 ? null : elems[0].shadowRoot
             return gradioShadowRoot ? gradioShadowRoot : document
         }
         async function onUiLoaded(callback){
-            await waitForElement(gradioApp(), '#openpose3d_consts')
-            callback()
+            await waitForElement(gradioApp(), '#openpose3d_main')
+            await callback()
+            await onTabChangedCallback?.()
         }
         function onUiTabChange(callback){
+            onTabChangedCallback = callback
         }
     </script>
     """
     head += f"""
     <script type="module">
-        document.addEventListener("DOMContentLoaded", function() {{import("/file={js_path}")}})
+        document.addEventListener("DOMContentLoaded", function() {{import("{get_asset_url(js_path)}")}})
     </script>
     """
 
@@ -251,7 +262,8 @@ def main():
     gr.routes.templates.TemplateResponse = template_response
 
     with gr.Blocks(analytics_enabled=False, css=css_path.read_text()) as blocks:
-        create_ui()
+        with gr.Tab(label="3D Openpose", elem_id="tab_threedopenpose"):
+            create_ui()
     blocks.launch()
 
 
@@ -259,5 +271,6 @@ try:
     from modules import script_callbacks
 
     script_callbacks.on_ui_tabs(on_ui_tabs)
+    script_callbacks.on_ui_settings(on_ui_settings)
 except ImportError:
     main()
