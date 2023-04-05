@@ -555,6 +555,8 @@ export async function LoadHand(
                 color: 0xff0000,
                 //  vertexColors: true,
                 depthTest: false,
+                opacity: 1,
+                transparent: true,
                 // depthWrite: false,
                 // toneMapped: false,
                 // transparent: true,
@@ -566,6 +568,14 @@ export async function LoadHand(
         o.add(point)
     })
 
+    const mask = new THREE.Mesh(
+        new THREE.CylinderGeometry(1, 1, 0.4, 32),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+    )
+    mask.name = 'hand_mask'
+    mask.visible = false
+    mask.rotateZ(Math.PI / 2)
+    mesh.skeleton.bones[0].add(mask)
     return fbx
 }
 
@@ -589,7 +599,12 @@ export async function LoadFoot(
         if (o.name !== 'FootBone2') return
         const point = new THREE.Mesh(
             new THREE.SphereGeometry(0.1),
-            new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false })
+            new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                depthTest: false,
+                opacity: 1,
+                transparent: true,
+            })
         )
 
         point.name = 'red_point'
@@ -598,6 +613,13 @@ export async function LoadFoot(
         o.add(point)
     })
 
+    const mask = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.32, 0.32, 0.1, 32),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+    )
+    mask.name = 'foot_mask'
+    mask.visible = false
+    mesh.skeleton.bones[0].add(mask)
     return fbx
 }
 
@@ -630,6 +652,12 @@ export function IsNeedSaveObject(name: string) {
     if (name.startsWith(footModelInfo.bonePrefix)) return true
     if (name.includes('_joint_sphere')) return true
     if (name.includes('_link_')) return true
+    return false
+}
+
+export function IsBone(name: string) {
+    if (name.startsWith(handModelInfo.bonePrefix)) return true
+    if (name.startsWith(footModelInfo.bonePrefix)) return true
     return false
 }
 
@@ -691,6 +719,10 @@ export function IsHand(name: string) {
 
 export function IsFoot(name: string) {
     return ['left_foot', 'right_foot'].includes(name)
+}
+
+export function IsMask(name: string) {
+    return ['foot_mask', 'hand_mask'].includes(name)
 }
 
 export function IsSkeleton(name: string) {

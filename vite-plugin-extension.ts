@@ -61,6 +61,7 @@ export default function (): Plugin {
                                 'src/environments/extension/entry.ts'
                             ),
                         }
+                        common.publicDir = false
                         const output = common.build.rollupOptions
                             .output as OutputOptions
                         output.format = 'iife'

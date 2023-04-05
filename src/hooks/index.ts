@@ -17,6 +17,7 @@ export async function LoadBodyData() {
 
 export function useBodyEditor(
     canvasRef: RefObject<HTMLCanvasElement>,
+    previewCanvasRef: RefObject<HTMLCanvasElement>,
     parent?: RefObject<HTMLDivElement>
 ) {
     const [editor, setEditor] = useState<BodyEditor>()
@@ -24,11 +25,13 @@ export function useBodyEditor(
     useEffect(() => {
         const canvas = canvasRef.current
         if (!canvas) return
-
+        const previewCanvas = previewCanvasRef.current
+        if (!previewCanvas) return
         console.warn('create editor')
 
         let editor: BodyEditor | null = new BodyEditor({
             canvas,
+            previewCanvas,
             parentElem: parent?.current ?? (document as any),
             statsElem: import.meta.env.DEV ? document.body : undefined,
         })
@@ -41,6 +44,13 @@ export function useBodyEditor(
             if (editor) {
                 await LoadBodyData()
                 editor?.InitScene()
+                if (editor?.RestoreScene && location.hash) {
+                    const rawData = decodeURIComponent(
+                        location.hash.replace(/^#/, '')
+                    )
+                    editor?.RestoreScene(rawData)
+                    location.hash = ''
+                }
             }
         }
         init()

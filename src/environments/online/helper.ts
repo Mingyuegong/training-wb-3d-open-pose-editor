@@ -83,6 +83,22 @@ export class Helper {
             return null
         }
     }
+
+    async GenerateSceneURL() {
+        try {
+            const d = encodeURIComponent(
+                JSON.stringify(this.editor.GetSceneData())
+            )
+            const url_base = location.href.replace(/#$/, '')
+            const url = `${url_base}#${d}`
+            await navigator.clipboard.writeText(url)
+            ShowToast({ title: i18n.t('Copied to Clipboard') })
+        } catch (error) {
+            Oops(error)
+            console.error(error)
+        }
+    }
+
     async SetRandomPose() {
         const body = await this.editor.GetBodyToSetPose()
         if (!body) {
@@ -117,7 +133,28 @@ export class Helper {
             return
         }
     }
-    Feedback() {
+    async CopySkeleton() {
+        const body = this.editor.getSelectedBody()
+        if (!body) {
+            ShowToast({ title: i18n.t('Please select a skeleton!!') })
+            return
+        }
+
+        this.editor.CopySelectedBody()
+    }
+    async RemoveSkeleton() {
+        const body = this.editor.getSelectedBody()
+        if (!body) {
+            ShowToast({ title: i18n.t('Please select a skeleton!!') })
+            return
+        }
+
+        this.editor.RemoveBody()
+    }
+    FeedbackByQQ() {
+        window.open('https://jq.qq.com/?_wv=1027&k=N6j4nigd')
+    }
+    FeedbackByGithub() {
         window.open(
             'https://github.com/nonnonstop/sd-webui-3d-open-pose-editor/issues/new/choose'
         )

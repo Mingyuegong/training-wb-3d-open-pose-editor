@@ -12,6 +12,7 @@ import useForceUpdate from '../../hooks/useFoceUpdate'
 import classNames from 'classnames'
 import { useLanguageSelect } from '../../hooks'
 import { ShowContextMenu } from '../ContextMenu'
+import { ShowDialog } from '../Dialog'
 
 const {
     MenubarRoot,
@@ -70,6 +71,14 @@ const MenubarDemo: React.FC<{
                             onSelect={() => editor.SaveScene()}
                         >
                             {i18n.t('Save Scene')}
+                        </Menubar.Item>
+                        <Menubar.Item
+                            className={MenubarItem}
+                            onSelect={() => {
+                                helper.GenerateSceneURL()
+                            }}
+                        >
+                            {i18n.t('Generate Scene URL')}
                         </Menubar.Item>
                         <Menubar.Separator className={MenubarSeparator} />
                         <Menubar.Item
@@ -268,14 +277,34 @@ const MenubarDemo: React.FC<{
             </Menubar.Menu>
 
             <Menubar.Menu>
-                <Menubar.Trigger
-                    className={MenubarTrigger}
-                    onClick={() => {
-                        helper.Feedback()
-                    }}
-                >
+                <Menubar.Trigger className={MenubarTrigger}>
                     {i18n.t('Feedback')}
                 </Menubar.Trigger>
+                <Menubar.Portal>
+                    <Menubar.Content
+                        className={MenubarContent}
+                        align="start"
+                        sideOffset={5}
+                        alignOffset={-14}
+                    >
+                        <Menubar.Item
+                            className={classNames(MenubarItem, inset)}
+                            onSelect={() => {
+                                helper.FeedbackByGithub()
+                            }}
+                        >
+                            Github
+                        </Menubar.Item>
+                        <Menubar.Item
+                            className={classNames(MenubarItem, inset)}
+                            onSelect={() => {
+                                helper.FeedbackByQQ()
+                            }}
+                        >
+                            QQ
+                        </Menubar.Item>
+                    </Menubar.Content>
+                </Menubar.Portal>
             </Menubar.Menu>
             <Menubar.Menu>
                 <Menubar.Trigger className={MenubarTrigger}>

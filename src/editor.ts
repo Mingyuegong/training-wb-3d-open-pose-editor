@@ -3,6 +3,7 @@ import {
     Bone,
     Material,
     Mesh,
+    MeshBasicMaterial,
     MeshDepthMaterial,
     MeshNormalMaterial,
     MeshPhongMaterial,
@@ -25,9 +26,11 @@ import {
     BodyControlor,
     CloneBody,
     GetExtremityMesh,
+    IsBone,
     IsExtremities,
     IsFoot,
     IsHand,
+    IsMask,
     IsNeedSaveObject,
     IsPickable,
     IsSkeleton,
@@ -132,9 +135,109 @@ export interface ParentElement {
     ): void
 }
 
+class PreviewRenderer {
+    scene: THREE.Scene
+    camera: THREE.PerspectiveCamera
+    canvas?: HTMLCanvasElement
+    renderer: THREE.WebGLRenderer
+    orbitControls: OrbitControls
+
+    constructor(setting: {
+        scene: THREE.Scene
+        camera: THREE.PerspectiveCamera
+        orbitControls: OrbitControls
+
+        canvas?: HTMLCanvasElement
+        renderer?: THREE.WebGLRenderer
+    }) {
+        this.scene = setting.scene
+        this.camera = setting.camera
+        this.canvas = setting.canvas
+        this.orbitControls = setting.orbitControls
+        if (setting.renderer) {
+            this.renderer = setting.renderer
+        } else {
+            this.renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                canvas: setting.canvas,
+                // logarithmicDepthBuffer: true
+            })
+        }
+    }
+
+    renderBySize(
+        outputWidth: number,
+        outputHeight: number,
+        render: (outputWidth: number, outputHeight: number) => void
+    ) {
+        const save = {
+            aspect: this.camera.aspect,
+        }
+        this.camera.aspect = outputWidth / outputHeight
+        this.camera.updateProjectionMatrix()
+        this.renderer.setSize(outputWidth, outputHeight, true)
+
+        render(outputWidth, outputHeight)
+
+        this.camera.aspect = save.aspect
+        this.camera.updateProjectionMatrix()
+    }
+
+    GetCameraData() {
+        const result = {
+            position: this.camera.position.toArray(),
+            rotation: this.camera.rotation.toArray(),
+            target: this.orbitControls.target.toArray(),
+            near: this.camera.near,
+            far: this.camera.far,
+            zoom: this.camera.zoom,
+        }
+
+        return result
+    }
+
+    RestoreCamera(data: CameraData, updateOrbitControl = true) {
+        this.camera.position.fromArray(data.position)
+        this.camera.rotation.fromArray(data.rotation as any)
+        this.camera.near = data.near
+        this.camera.far = data.far
+        this.camera.zoom = data.zoom
+        this.camera.updateProjectionMatrix()
+
+        if (data.target) this.orbitControls.target.fromArray(data.target)
+        if (updateOrbitControl) this.orbitControls.update() // fix position change
+    }
+
+    changeView(cameraDataOfView?: CameraData) {
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        if (!cameraDataOfView) return () => {}
+
+        const old = this.GetCameraData()
+        this.RestoreCamera(cameraDataOfView, false)
+        return () => {
+            this.RestoreCamera(old)
+        }
+    }
+
+    render(
+        outputWidth: number,
+        outputHeight: number,
+        cameraDataOfView?: CameraData,
+        custom?: (outputWidth: number, outputHeight: number) => void
+    ) {
+        const render = () => {
+            this.renderer.render(this.scene, this.camera)
+        }
+        const restoreView = this.changeView(cameraDataOfView)
+        this.renderBySize(outputWidth, outputHeight, custom ?? render)
+        restoreView()
+    }
+}
+
 export class BodyEditor {
     renderer: THREE.WebGLRenderer
     outputRenderer: THREE.WebGLRenderer
+    previewRenderer: PreviewRenderer
     scene: THREE.Scene
     gridHelper: THREE.GridHelper
     axesHelper: THREE.AxesHelper
@@ -150,6 +253,7 @@ export class BodyEditor {
 
     // ikSolver?: CCDIKSolver
     composer?: EffectComposer
+    finalComposer?: EffectComposer
     effectSobel?: ShaderPass
     enableComposer = false
     enablePreview = true
@@ -160,10 +264,12 @@ export class BodyEditor {
     clearColor = 0xaaaaaa
     constructor({
         canvas,
+        previewCanvas,
         parentElem = document,
         statsElem,
     }: {
         canvas: HTMLCanvasElement
+        previewCanvas: HTMLCanvasElement
         parentElem?: ParentElement
         statsElem?: Element
     }) {
@@ -211,10 +317,17 @@ export class BodyEditor {
         )
 
         this.transformControl.setMode('rotate') //旋转
-        // this.transformControl.setSize(0.4);
+        this.transformControl.setSize(0.4)
         this.transformControl.setSpace('local')
         this.registerTranformControlEvent()
         this.scene.add(this.transformControl)
+
+        this.previewRenderer = new PreviewRenderer({
+            scene: this.scene,
+            camera: this.camera,
+            orbitControls: this.orbitControls,
+            canvas: previewCanvas,
+        })
 
         // Light
         this.dlight = new THREE.DirectionalLight(0xffffff, 1.0)
@@ -538,12 +651,11 @@ export class BodyEditor {
         this.camera.updateProjectionMatrix()
     }
 
-    renderOutput(scale = 1) {
-        const outputWidth = this.OutputWidth * scale
-        const outputHeight = this.OutputHeight * scale
-
-        this.changeComposerResoultion(outputWidth, outputHeight)
-
+    renderOutputBySize(
+        outputWidth: number,
+        outputHeight: number,
+        render: (outputWidth: number, outputHeight: number) => void
+    ) {
         const save = {
             aspect: this.camera.aspect,
         }
@@ -551,14 +663,23 @@ export class BodyEditor {
         this.camera.updateProjectionMatrix()
         this.outputRenderer.setSize(outputWidth, outputHeight, true)
 
-        if (this.enableComposer) {
-            this.composer?.render()
-        } else {
-            this.outputRenderer.render(this.scene, this.camera)
-        }
+        render(outputWidth, outputHeight)
 
         this.camera.aspect = save.aspect
         this.camera.updateProjectionMatrix()
+    }
+
+    renderOutput(
+        scale = 1,
+        custom?: (outputWidth: number, outputHeight: number) => void
+    ) {
+        const outputWidth = this.OutputWidth * scale
+        const outputHeight = this.OutputHeight * scale
+
+        const render = () => {
+            this.outputRenderer.render(this.scene, this.camera)
+        }
+        this.renderOutputBySize(outputWidth, outputHeight, custom ?? render)
     }
     getOutputPNG() {
         return this.outputRenderer.domElement.toDataURL('image/png')
@@ -575,11 +696,8 @@ export class BodyEditor {
     }
 
     outputPreview() {
-        if (this.enablePreview) {
-            this.PreviewEventManager.TriggerEvent(this.CapturePreview())
-        } else {
-            this.PreviewEventManager.TriggerEvent('')
-        }
+        if (this.enablePreview) this.CapturePreview()
+        this.PreviewEventManager.TriggerEvent(this.enablePreview)
     }
     pause() {
         this.paused = true
@@ -609,15 +727,17 @@ export class BodyEditor {
         mouseX: number
         mouseY: number
     }>()
-    PreviewEventManager = new EditorEventManager<string>()
+    PreviewEventManager = new EditorEventManager<boolean>()
     LockViewEventManager = new EditorEventManager<boolean>()
 
     triggerSelectEvent(body: Object3D) {
         const c = new BodyControlor(body)
         this.SelectEventManager.TriggerEvent(c)
+        this.UpdateBones()
     }
     triggerUnselectEvent() {
         this.UnselectEventManager.TriggerEvent()
+        this.UpdateBones()
     }
 
     addEvent() {
@@ -673,7 +793,9 @@ export class BodyEditor {
         event.preventDefault()
         this.IsClick = true
     }
-    onMouseMove() {
+    onMouseMove(event: MouseEvent) {
+        // some devices still send movemove event, filter it.
+        if (event.movementX == 0 && event.movementY == 0) return
         this.IsClick = false
     }
 
@@ -688,10 +810,7 @@ export class BodyEditor {
             this.camera
         )
         const intersects: THREE.Intersection[] =
-            this.raycaster.intersectObjects(
-                this.scene.children.filter((o) => o?.name === 'torso'),
-                true
-            )
+            this.raycaster.intersectObjects(this.GetBodies(), true)
         // If read_point is found, choose it first
         const point = intersects.find((o) => o.object.name === 'red_point')
         const intersectedObject: THREE.Object3D | null = point
@@ -774,37 +893,39 @@ export class BodyEditor {
     }
 
     traverseHandObjecct(handle: (o: THREE.Mesh) => void) {
-        this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .forEach((o) => {
-                o.traverse((child) => {
-                    if (IsHand(child?.name)) {
-                        handle(child as THREE.Mesh)
-                    }
-                })
+        this.GetBodies().forEach((o) => {
+            o.traverse((child) => {
+                if (IsHand(child?.name)) {
+                    handle(child as THREE.Mesh)
+                }
             })
+        })
     }
 
     traverseBodies(handle: (o: Object3D) => void) {
-        this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .forEach((o) => {
-                o.traverse((child) => {
-                    handle(child)
-                })
+        this.GetBodies().forEach((o) => {
+            o.traverse((child) => {
+                handle(child)
             })
+        })
+    }
+
+    traverseBones(handle: (o: Bone) => void) {
+        this.GetBodies().forEach((o) => {
+            o.traverse((child) => {
+                if (child instanceof Bone && IsBone(child.name)) handle(child)
+            })
+        })
     }
 
     traverseExtremities(handle: (o: THREE.Mesh) => void) {
-        this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .forEach((o) => {
-                o.traverse((child) => {
-                    if (IsExtremities(child.name)) {
-                        handle(child as THREE.Mesh)
-                    }
-                })
+        this.GetBodies().forEach((o) => {
+            o.traverse((child) => {
+                if (IsExtremities(child.name)) {
+                    handle(child as THREE.Mesh)
+                }
             })
+        })
     }
 
     onlyShowSkeleton() {
@@ -823,25 +944,41 @@ export class BodyEditor {
         }
     }
 
+    showMask() {
+        const recoveryArr: Object3D[] = []
+        this.scene.traverse((o) => {
+            if (IsMask(o.name)) {
+                console.log(o.name)
+                o.visible = true
+                recoveryArr.push(o)
+            }
+        })
+
+        return () => {
+            recoveryArr.forEach((o) => (o.visible = false))
+        }
+    }
+
     hideSkeleten() {
         const map = new Map<Object3D, Object3D | null>()
 
-        this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .forEach((o) => {
-                o.traverse((child) => {
-                    if (IsExtremities(child?.name)) {
-                        map.set(child, child.parent)
-                        this.scene.attach(child)
-                    } else if (child?.name === 'red_point') {
-                        child.visible = false
-                    }
-                })
-                o.visible = false
+        this.GetBodies().forEach((o) => {
+            o.traverse((child) => {
+                if (IsExtremities(child?.name)) {
+                    map.set(child, child.parent)
+                    this.scene.attach(child)
+                } else if (child?.name === 'red_point') {
+                    child.visible = false
+                }
             })
+            o.visible = false
+        })
         return map
     }
 
+    GetBodies() {
+        return this.scene.children.filter((o) => o?.name === 'torso')
+    }
     showSkeleten(map: Map<Object3D, Object3D | null>) {
         for (const [k, v] of map.entries()) {
             v?.attach(k)
@@ -849,16 +986,14 @@ export class BodyEditor {
 
         map.clear()
 
-        this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .forEach((o) => {
-                o.traverse((child) => {
-                    if (child?.name === 'red_point') {
-                        child.visible = true
-                    }
-                })
-                o.visible = true
+        this.GetBodies().forEach((o) => {
+            o.traverse((child) => {
+                if (child?.name === 'red_point') {
+                    child.visible = true
+                }
             })
+            o.visible = true
+        })
     }
 
     changeComposer(enable: boolean) {
@@ -868,7 +1003,7 @@ export class BodyEditor {
         return () => (this.enableComposer = save)
     }
 
-    changeHandMaterial(type: 'depth' | 'normal' | 'phone') {
+    changeHandMaterialOld(type: 'depth' | 'normal' | 'phone') {
         const map = new Map<THREE.Mesh, Material | Material[]>()
         this.traverseExtremities((child) => {
             const o = GetExtremityMesh(child)
@@ -886,6 +1021,19 @@ export class BodyEditor {
             }
 
             map.clear()
+        }
+    }
+
+    changeHandMaterial(type: 'depth' | 'normal' | 'phone') {
+        if (type == 'depth')
+            this.scene.overrideMaterial = new MeshDepthMaterial()
+        else if (type == 'normal')
+            this.scene.overrideMaterial = new MeshNormalMaterial()
+        else if (type == 'phone')
+            this.scene.overrideMaterial = new MeshPhongMaterial()
+
+        return () => {
+            this.scene.overrideMaterial = null
         }
     }
 
@@ -957,58 +1105,54 @@ export class BodyEditor {
     }
 
     CapturePreview() {
-        const restoreView = this.changeView()
-        this.renderOutput(300.0 / this.OutputHeight)
-        restoreView()
-        const imgData = this.getOutputPNG()
-        return imgData
+        const scale = (window.devicePixelRatio * 140.0) / this.OutputHeight
+
+        const outputWidth = this.OutputWidth * scale
+        const outputHeight = this.OutputHeight * scale
+
+        this.previewRenderer.render(
+            outputWidth,
+            outputHeight,
+            this.cameraDataOfView
+        )
     }
 
     CaptureCanny() {
-        const map = this.hideSkeleten()
+        this.renderOutput(1, (outputWidth, outputHeight) => {
+            this.changeComposerResoultion(outputWidth, outputHeight)
 
-        const restore = this.changeComposer(true)
-        this.renderOutput()
+            // step 1: get mask image
+            const restoreMask = this.showMask()
+            this.composer?.render()
+            restoreMask()
 
-        const imgData = this.getOutputPNG()
+            const restoreMaterial = this.changeHandMaterial('normal')
 
-        this.showSkeleten(map)
-        restore()
+            // step 2:
+            // get sobel image
+            // filer out pixels not in mask
+            // get binarized pixels
+            this.finalComposer?.render()
+            restoreMaterial()
+        })
 
-        return imgData
+        return this.getOutputPNG()
     }
 
     CaptureNormal() {
         const restoreHand = this.changeHandMaterial('normal')
-        const map = this.hideSkeleten()
-        const restore = this.changeComposer(false)
         this.renderOutput()
-
-        const imgData = this.getOutputPNG()
-
-        this.showSkeleten(map)
-        restore()
         restoreHand()
-
-        return imgData
+        return this.getOutputPNG()
     }
 
     CaptureDepth() {
         const restoreHand = this.changeHandMaterial('depth')
-        const map = this.hideSkeleten()
-        const restore = this.changeComposer(false)
-
         const restoreCamera = this.changeCamera()
         this.renderOutput()
         restoreCamera()
-
-        const imgData = this.getOutputPNG()
-
-        this.showSkeleten(map)
-        restore()
         restoreHand()
-
-        return imgData
+        return this.getOutputPNG()
     }
 
     changeTransformControl() {
@@ -1034,9 +1178,14 @@ export class BodyEditor {
         const restoreView = this.changeView()
 
         const poseImage = this.Capture()
+
+        /// begin
+        const map = this.hideSkeleten()
         const depthImage = this.CaptureDepth()
         const normalImage = this.CaptureNormal()
         const cannyImage = this.CaptureCanny()
+        this.showSkeleten(map)
+        /// end
 
         this.renderer.setClearColor(0x000000, 0)
         this.axesHelper.visible = true
@@ -1061,7 +1210,7 @@ export class BodyEditor {
     }
 
     CopySelectedBody() {
-        const list = this.scene.children.filter((o) => o?.name === 'torso')
+        const list = this.GetBodies()
 
         const selectedBody = this.getSelectedBody()
 
@@ -1087,8 +1236,7 @@ export class BodyEditor {
         const body = CloneBody()
         if (!body) return
 
-        const list = this.scene.children
-            .filter((o) => o?.name === 'torso')
+        const list = this.GetBodies()
             .filter((o) => o.position.x === 0)
             .map((o) => Math.ceil(o.position.z / 30))
 
@@ -1104,8 +1252,7 @@ export class BodyEditor {
         const body = CloneBody()
         if (!body) return
 
-        const list = this.scene.children
-            .filter((o) => o?.name === 'torso')
+        const list = this.GetBodies()
             .filter((o) => o.position.z === 0)
             .map((o) => Math.ceil(o.position.x / 50))
 
@@ -1189,13 +1336,19 @@ export class BodyEditor {
         let IsTranslateMode = move
         this.isMoveMode = move
 
-        const name = this.getSelectedPart()?.name
+        const name = this.getSelectedPart()?.name ?? ''
 
-        if (name && IsTranslate(name, this.FreeMode)) {
-            IsTranslateMode = true
-        } else if (move) {
-            const obj = this.getSelectedBody()
-            if (obj) this.transformControl.attach(obj)
+        if (move) {
+            if (IsTranslate(name, this.FreeMode)) {
+                IsTranslateMode = true
+            } else {
+                const obj = this.getSelectedBody()
+                if (obj) this.transformControl.attach(obj)
+            }
+        } else {
+            if (IsTarget(name)) {
+                IsTranslateMode = true
+            }
         }
 
         if (IsTranslateMode) {
@@ -1207,7 +1360,7 @@ export class BodyEditor {
         }
     }
 
-    FreeMode = false
+    FreeMode = true
 
     get Width() {
         return this.renderer.domElement.clientWidth
@@ -1260,28 +1413,69 @@ export class BodyEditor {
         this.composer = new EffectComposer(this.outputRenderer)
         const renderPass = new RenderPass(this.scene, this.camera)
         this.composer.addPass(renderPass)
+        this.composer.renderToScreen = false
+
+        const finalPass = new ShaderPass(
+            new THREE.ShaderMaterial({
+                uniforms: {
+                    baseTexture: { value: null },
+                    bloomTexture: {
+                        value: this.composer.renderTarget2.texture,
+                    },
+                },
+                vertexShader: `
+varying vec2 vUv;
+void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+}`,
+                fragmentShader: `
+uniform sampler2D baseTexture;
+uniform sampler2D bloomTexture;
+
+varying vec2 vUv;
+
+void main() {
+    vec4 bloomColor = texture2D(bloomTexture, vUv);
+    float grayValue = dot(bloomColor.rgb, vec3(0.299, 0.587, 0.114));
+    vec4 baseColor = texture2D(baseTexture, vUv);
+    vec4 masked = vec4(baseColor.rgb * step(0.001, grayValue), 1.0);
+    gl_FragColor = step(0.5, masked)  * vec4(1.0); // Binarization
+    // gl_FragColor = bloomColor;
+}
+
+`,
+                defines: {},
+            }),
+            'baseTexture'
+        )
+        finalPass.needsSwap = true
+
+        this.finalComposer = new EffectComposer(this.outputRenderer)
+        this.finalComposer.addPass(renderPass)
 
         // color to grayscale conversion
-
         const effectGrayScale = new ShaderPass(LuminosityShader)
-        this.composer.addPass(effectGrayScale)
-
-        // you might want to use a gaussian blur filter before
-        // the next pass to improve the result of the Sobel operator
+        this.finalComposer.addPass(effectGrayScale)
 
         // Sobel operator
-
         const effectSobel = new ShaderPass(SobelOperatorShader)
         effectSobel.uniforms['resolution'].value.x =
             this.Width * window.devicePixelRatio
         effectSobel.uniforms['resolution'].value.y =
             this.Height * window.devicePixelRatio
-        this.composer.addPass(effectSobel)
+        this.finalComposer.addPass(effectSobel)
+
         this.effectSobel = effectSobel
+
+        this.finalComposer.addPass(finalPass)
     }
 
     changeComposerResoultion(width: number, height: number) {
         this.composer?.setSize(width, height)
+        this.finalComposer?.setSize(width, height)
+
         if (this.effectSobel) {
             this.effectSobel.uniforms['resolution'].value.x =
                 width * window.devicePixelRatio
@@ -1354,9 +1548,7 @@ export class BodyEditor {
         return result
     }
     GetSceneData() {
-        const bodies = this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .map((o) => this.GetBodyData(o))
+        const bodies = this.GetBodies().map((o) => this.GetBodyData(o))
 
         const data = {
             header: 'Openpose Editor by Yu Zhu',
@@ -1399,9 +1591,7 @@ export class BodyEditor {
     }
 
     ClearScene() {
-        this.scene.children
-            .filter((o) => o?.name === 'torso')
-            .forEach((o) => o.removeFromParent())
+        this.GetBodies().forEach((o) => o.removeFromParent())
     }
 
     RestoreBody(body: Object3D, data: BodyData) {
@@ -1536,7 +1726,7 @@ export class BodyEditor {
     //     CreateLink2(objects['right_eye'], objects['right_ear'])
     // }
     async GetBodyToSetPose() {
-        const bodies = this.scene.children.filter((o) => o.name == 'torso')
+        const bodies = this.GetBodies()
         const body = bodies.length == 1 ? bodies[0] : this.getSelectedBody()
         return body
     }
@@ -1587,5 +1777,59 @@ export class BodyEditor {
 
         // eslint-disable-next-line @typescript-eslint/no-empty-function
         return () => {}
+    }
+    getSelectedBone() {
+        const part = this.getSelectedPart()
+        const isSelectBone = part && IsBone(part.name)
+        return isSelectBone ? (part as Bone) : null
+    }
+    UpdateBones() {
+        const DEFAULT_COLOR = 0xff0000
+        const DEFAULT = 1
+        const SELECTED = 1
+        const SELECTED_COLOR = 0xeeee00
+        const ACTIVE = 1
+        const INACTIVE = 0.2
+
+        const setColor = (
+            bone: Bone,
+            opacity: number,
+            color = DEFAULT_COLOR
+        ) => {
+            const point = bone.children.find(
+                (o) => o instanceof THREE.Mesh
+            ) as THREE.Mesh
+            if (point) {
+                const material = point.material as MeshBasicMaterial
+
+                material.color.set(color)
+                material.opacity = opacity
+                material.needsUpdate = true
+            }
+        }
+        const selectedBone = this.getSelectedBone()
+
+        this.traverseBones((bone) => {
+            setColor(bone, selectedBone ? INACTIVE : DEFAULT)
+        })
+
+        if (selectedBone) {
+            let bone = selectedBone
+
+            setColor(bone, SELECTED, SELECTED_COLOR)
+
+            bone.traverseAncestors((ancestor) => {
+                if (IsBone(ancestor.name)) {
+                    setColor(ancestor as Bone, ACTIVE)
+                }
+            })
+
+            for (;;) {
+                const child = bone.children.filter((o) => o instanceof Bone)
+                if (child.length !== 1) break
+                setColor(child[0] as Bone, ACTIVE)
+                bone = child[0] as Bone
+            }
+        }
     }
 }
