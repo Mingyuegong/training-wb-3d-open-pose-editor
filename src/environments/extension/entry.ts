@@ -192,8 +192,8 @@ onUiLoaded(async () => {
         return
     }
 
-    await InvokeCommand('OutputWidth', 512)
-    await InvokeCommand('OutputHeight', 512)
+    // await InvokeCommand('OutputWidth', 512)
+    // await InvokeCommand('OutputHeight', 512)
     if (!isTabActive()) {
         await InvokeCommand('Pause')
     }
