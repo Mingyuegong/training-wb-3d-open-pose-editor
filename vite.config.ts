@@ -95,7 +95,7 @@ const config: UserConfigFn = ({ command, mode, ssrBuild }) => {
         base: mode === 'singlefile' ? './' : '/open-pose-editor/',
         define: {
             global: {},
-            __APP_VERSION__: JSON.stringify('0.1.11'),
+            __APP_VERSION__: JSON.stringify('0.1.13'),
             __APP_BUILD_TIME__: Date.now(),
         },
         build: {

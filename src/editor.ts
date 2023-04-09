@@ -289,14 +289,14 @@ export class BodyEditor {
         this.renderer.setClearColor(this.clearColor, 0.0)
         this.scene = new THREE.Scene()
 
-        this.gridHelper = new THREE.GridHelper(800, 200)
+        this.gridHelper = new THREE.GridHelper(8000, 200)
         this.axesHelper = new THREE.AxesHelper(1000)
         this.scene.add(this.gridHelper)
         this.scene.add(this.axesHelper)
 
         const aspect = window.innerWidth / window.innerHeight
 
-        this.camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000)
+        this.camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 10000)
 
         this.camera.position.set(0, 100, 200)
         this.camera.lookAt(0, 100, 0)
@@ -1003,12 +1003,11 @@ export class BodyEditor {
         return () => (this.enableComposer = save)
     }
 
-    changeHandMaterialOld(type: 'depth' | 'normal' | 'phone') {
+    changeHandMaterialTraverse(type: 'depth' | 'normal' | 'phone') {
         const map = new Map<THREE.Mesh, Material | Material[]>()
-        this.traverseExtremities((child) => {
-            const o = GetExtremityMesh(child)
-            if (!o) return
-
+        this.scene.traverse((child) => {
+            if (!IsExtremities(child.name)) return
+            const o = GetExtremityMesh(child) as THREE.Mesh
             map.set(o, o.material)
             if (type == 'depth') o.material = new MeshDepthMaterial()
             else if (type == 'normal') o.material = new MeshNormalMaterial()
@@ -1120,20 +1119,19 @@ export class BodyEditor {
     CaptureCanny() {
         this.renderOutput(1, (outputWidth, outputHeight) => {
             this.changeComposerResoultion(outputWidth, outputHeight)
-
+            const restoreMaterialTraverse =
+                this.changeHandMaterialTraverse('normal')
             // step 1: get mask image
             const restoreMask = this.showMask()
             this.composer?.render()
             restoreMask()
-
-            const restoreMaterial = this.changeHandMaterial('normal')
 
             // step 2:
             // get sobel image
             // filer out pixels not in mask
             // get binarized pixels
             this.finalComposer?.render()
-            restoreMaterial()
+            restoreMaterialTraverse()
         })
 
         return this.getOutputPNG()
@@ -1797,7 +1795,7 @@ void main() {
             color = DEFAULT_COLOR
         ) => {
             const point = bone.children.find(
-                (o) => o instanceof THREE.Mesh
+                (o) => o instanceof THREE.Mesh && !IsMask(o.name)
             ) as THREE.Mesh
             if (point) {
                 const material = point.material as MeshBasicMaterial
