@@ -242,7 +242,7 @@ def main():
             await callback()
             await onTabChangedCallback?.()
         }
-        function onUiTabChange(callback){
+        function onUiUpdate(callback){
             onTabChangedCallback = callback
         }
     </script>
